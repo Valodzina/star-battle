@@ -1,0 +1,22 @@
+html,
+body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden; /* Убираем скролл */
+    background-color: #000; /* Фон за пределами холста, если будут рамки */
+    touch-action: none; /* Предотвращаем дефолтные свайпы браузера (pull-to-refresh) */
+}
+
+#app {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+canvas {
+    display: block;
+}
