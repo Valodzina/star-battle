@@ -1,7 +1,24 @@
 import { COLORS } from '../ui/colors';
 
 export type Difficulty = 'easy' | 'medium' | 'hard';
-export type ScreenId = 'mainMenu' | 'levelSelect';
+export type ScreenId = 'mainMenu' | 'levelSelect' | 'gameplay';
+
+export type CellPlacement = 'nothing' | 'dot' | 'element';
+
+export interface CellState {
+  row: number;
+  col: number;
+  regionId: number;
+  placed: CellPlacement;
+}
+
+export interface GameplayState {
+  level: LevelData;
+  boardState: CellState[][];
+  elapsedSeconds: number;
+  remainingElements: number;
+  isVictory: boolean;
+}
 
 export interface LevelData {
   id: string;
@@ -44,4 +61,5 @@ export const DIFFICULTY_META: readonly DifficultyMeta[] = [
 export interface GameState {
   screen: ScreenId;
   selectedDifficulty: Difficulty | null;
+  gameplay: GameplayState | null;
 }

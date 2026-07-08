@@ -18,3 +18,18 @@ export const COLORS = {
   victoryOverlay: 0x000000,
   victoryText: 0xffffff,
 } as const;
+
+export const REGION_COLORS: readonly number[] = [
+  0x3d5a80,
+  0x4a7c59,
+  0x7b5e57,
+  0x6b4c9a,
+  0x8b6914,
+  0x4a6670,
+  0x7a4a6b,
+  0x5a7060,
+] as const;
+
+export function getRegionColor(regionId: number): number {
+  return REGION_COLORS[regionId % REGION_COLORS.length] ?? COLORS.cellPlayable;
+}

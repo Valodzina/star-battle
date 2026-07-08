@@ -1,19 +1,30 @@
 import { Application, Container, Graphics, Rectangle, Text } from 'pixi.js';
 import gsap from 'gsap';
-import type { Difficulty, GameState } from '../types/level';
+import type { CellState, Difficulty, GameplayState, GameState } from '../types/level';
 import { DIFFICULTY_META } from '../types/level';
 import type { LevelManager } from '../services/LevelManager';
-import { COLORS } from '../ui/colors';
+import { COLORS, getRegionColor } from '../ui/colors';
 
 const FONT_FAMILY = 'Arial, sans-serif';
 const SCREEN_PADDING = 24;
 const BUTTON_GAP = 16;
 const TILE_GAP = 12;
+const GAMEPLAY_HEADER_HEIGHT = 56;
+const GRID_LINE_WIDTH = 1;
+const REGION_BORDER_WIDTH = 4;
 
 export interface GameViewCallbacks {
   onDifficultySelected: (difficulty: Difficulty) => void;
   onBackSelected: () => void;
   onLevelSelected: (index: number) => void;
+  onCellClicked: (row: number, col: number) => void;
+  onBackToLevels: () => void;
+}
+
+function formatTime(seconds: number): string {
+  const minutes = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 }
 
 function getColumnsPerRow(width: number, height: number): number {
@@ -33,7 +44,15 @@ export class GameView {
     onDifficultySelected: () => undefined,
     onBackSelected: () => undefined,
     onLevelSelected: () => undefined,
+    onCellClicked: () => undefined,
+    onBackToLevels: () => undefined,
   };
+
+  private timerText: Text | null = null;
+  private remainingText: Text | null = null;
+  private cellMarkerGraphics: Graphics[][] = [];
+  private victoryOverlay: Container | null = null;
+  private currentCellSize = 0;
 
   constructor(app: Application, levelManager: LevelManager) {
     this.app = app;
@@ -47,6 +66,7 @@ export class GameView {
 
   render(state: GameState): void {
     this.killActiveTweens();
+    this.clearGameplayRefs();
     this.root.removeChildren().forEach((child) => child.destroy({ children: true }));
 
     if (state.screen === 'mainMenu') {
@@ -54,8 +74,43 @@ export class GameView {
       return;
     }
 
-    if (state.selectedDifficulty) {
+    if (state.screen === 'levelSelect' && state.selectedDifficulty) {
       this.renderLevelSelect(state.selectedDifficulty);
+      return;
+    }
+
+    if (state.screen === 'gameplay' && state.gameplay) {
+      this.renderGameplay(state.gameplay);
+    }
+  }
+
+  updateTimerDisplay(seconds: number): void {
+    if (this.timerText && !this.timerText.destroyed) {
+      this.timerText.text = formatTime(seconds);
+    }
+  }
+
+  updateGameplayBoard(
+    boardState: CellState[][],
+    remainingElements: number,
+    isVictory: boolean,
+  ): void {
+    if (this.remainingText && !this.remainingText.destroyed) {
+      this.remainingText.text = `Left: ${remainingElements}`;
+    }
+
+    for (let row = 0; row < boardState.length; row += 1) {
+      for (let col = 0; col < (boardState[row]?.length ?? 0); col += 1) {
+        const cell = boardState[row]?.[col];
+        const marker = this.cellMarkerGraphics[row]?.[col];
+        if (cell && marker) {
+          this.drawCellMarker(marker, cell.placed, this.currentCellSize);
+        }
+      }
+    }
+
+    if (isVictory) {
+      this.showVictoryOverlay();
     }
   }
 
@@ -158,6 +213,276 @@ export class GameView {
     }
 
     this.root.addChild(grid);
+  }
+
+  private renderGameplay(gameplay: GameplayState): void {
+    const { width, height } = this.app.screen;
+    const { level, boardState, elapsedSeconds, remainingElements, isVictory } = gameplay;
+    const size = level.size;
+
+    const backButton = this.createButton({
+      width: 140,
+      height: 40,
+      label: 'Back to Levels',
+      color: COLORS.buttonBack,
+      onClick: () => this.callbacks.onBackToLevels(),
+    });
+    backButton.x = SCREEN_PADDING;
+    backButton.y = SCREEN_PADDING;
+    this.root.addChild(backButton);
+
+    this.timerText = new Text({
+      text: formatTime(elapsedSeconds),
+      style: {
+        fill: COLORS.title,
+        fontFamily: FONT_FAMILY,
+        fontSize: 28,
+        fontWeight: '700',
+      },
+    });
+    this.timerText.anchor.set(0.5, 0);
+    this.timerText.x = width / 2;
+    this.timerText.y = SCREEN_PADDING + 4;
+    this.root.addChild(this.timerText);
+
+    this.remainingText = new Text({
+      text: `Left: ${remainingElements}`,
+      style: {
+        fill: COLORS.textMuted,
+        fontFamily: FONT_FAMILY,
+        fontSize: 20,
+        fontWeight: '600',
+      },
+    });
+    this.remainingText.anchor.set(1, 0);
+    this.remainingText.x = width - SCREEN_PADDING;
+    this.remainingText.y = SCREEN_PADDING + 10;
+    this.root.addChild(this.remainingText);
+
+    const boardAreaTop = SCREEN_PADDING + GAMEPLAY_HEADER_HEIGHT;
+    const boardAreaWidth = width - SCREEN_PADDING * 2;
+    const boardAreaHeight = height - boardAreaTop - SCREEN_PADDING;
+    this.currentCellSize = Math.floor(
+      Math.min(boardAreaWidth / size, boardAreaHeight / size),
+    );
+
+    const boardWidth = this.currentCellSize * size;
+    const boardHeight = this.currentCellSize * size;
+    const boardContainer = new Container();
+    boardContainer.x = (width - boardWidth) / 2;
+    boardContainer.y = boardAreaTop + (boardAreaHeight - boardHeight) / 2;
+
+    this.buildBoard(boardContainer, boardState, size, this.currentCellSize);
+    this.root.addChild(boardContainer);
+
+    this.victoryOverlay = this.createVictoryOverlay(width, height);
+    this.victoryOverlay.visible = false;
+    this.victoryOverlay.alpha = 0;
+    this.root.addChild(this.victoryOverlay);
+
+    if (isVictory) {
+      this.showVictoryOverlay();
+    }
+  }
+
+  private buildBoard(
+    container: Container,
+    boardState: CellState[][],
+    size: number,
+    cellSize: number,
+  ): void {
+    const regionFills = new Graphics();
+    const gridLines = new Graphics();
+    const regionBorders = new Graphics();
+    const markersLayer = new Container();
+    const hitLayer = new Container();
+    this.cellMarkerGraphics = [];
+
+    for (let row = 0; row < size; row += 1) {
+      const markerRow: Graphics[] = [];
+      for (let col = 0; col < size; col += 1) {
+        const cell = boardState[row]?.[col];
+        if (!cell) {
+          continue;
+        }
+
+        const x = col * cellSize;
+        const y = row * cellSize;
+
+        regionFills.rect(x, y, cellSize, cellSize).fill(getRegionColor(cell.regionId));
+        this.drawRegionBorders(regionBorders, boardState, row, col, size, cellSize, x, y);
+
+        const marker = new Graphics();
+        this.drawCellMarker(marker, cell.placed, cellSize);
+        marker.x = x;
+        marker.y = y;
+        markerRow.push(marker);
+        markersLayer.addChild(marker);
+
+        const hitTarget = new Container();
+        hitTarget.x = x;
+        hitTarget.y = y;
+        hitTarget.eventMode = 'static';
+        hitTarget.cursor = 'pointer';
+        hitTarget.hitArea = new Rectangle(0, 0, cellSize, cellSize);
+        hitTarget.on('pointertap', () => this.callbacks.onCellClicked(row, col));
+        hitLayer.addChild(hitTarget);
+      }
+      this.cellMarkerGraphics.push(markerRow);
+    }
+
+    this.drawGridLines(gridLines, size, cellSize);
+
+    container.addChild(regionFills, gridLines, regionBorders, markersLayer, hitLayer);
+  }
+
+  private drawGridLines(graphics: Graphics, size: number, cellSize: number): void {
+    const boardWidth = size * cellSize;
+    const boardHeight = size * cellSize;
+
+    for (let i = 0; i <= size; i += 1) {
+      const pos = i * cellSize;
+      graphics
+        .moveTo(pos, 0)
+        .lineTo(pos, boardHeight)
+        .stroke({ width: GRID_LINE_WIDTH, color: COLORS.gridLine });
+      graphics
+        .moveTo(0, pos)
+        .lineTo(boardWidth, pos)
+        .stroke({ width: GRID_LINE_WIDTH, color: COLORS.gridLine });
+    }
+  }
+
+  private drawRegionBorders(
+    graphics: Graphics,
+    boardState: CellState[][],
+    row: number,
+    col: number,
+    size: number,
+    cellSize: number,
+    x: number,
+    y: number,
+  ): void {
+    const cell = boardState[row]?.[col];
+    if (!cell) {
+      return;
+    }
+
+    const strokeOpts = { width: REGION_BORDER_WIDTH, color: COLORS.regionBorder };
+
+    const topNeighbor = row > 0 ? boardState[row - 1]?.[col] : undefined;
+    if (row === 0 || topNeighbor?.regionId !== cell.regionId) {
+      graphics.moveTo(x, y).lineTo(x + cellSize, y).stroke(strokeOpts);
+    }
+
+    const leftNeighbor = col > 0 ? boardState[row]?.[col - 1] : undefined;
+    if (col === 0 || leftNeighbor?.regionId !== cell.regionId) {
+      graphics.moveTo(x, y).lineTo(x, y + cellSize).stroke(strokeOpts);
+    }
+
+    const rightNeighbor = col < size - 1 ? boardState[row]?.[col + 1] : undefined;
+    if (col === size - 1 || rightNeighbor?.regionId !== cell.regionId) {
+      graphics
+        .moveTo(x + cellSize, y)
+        .lineTo(x + cellSize, y + cellSize)
+        .stroke(strokeOpts);
+    }
+
+    const bottomNeighbor = row < size - 1 ? boardState[row + 1]?.[col] : undefined;
+    if (row === size - 1 || bottomNeighbor?.regionId !== cell.regionId) {
+      graphics
+        .moveTo(x, y + cellSize)
+        .lineTo(x + cellSize, y + cellSize)
+        .stroke(strokeOpts);
+    }
+  }
+
+  private drawCellMarker(graphics: Graphics, placed: CellState['placed'], cellSize: number): void {
+    graphics.clear();
+
+    if (placed === 'nothing') {
+      return;
+    }
+
+    const centerX = cellSize / 2;
+    const centerY = cellSize / 2;
+
+    if (placed === 'dot') {
+      const radius = cellSize * 0.075;
+      graphics.circle(centerX, centerY, radius).fill(COLORS.dotFill);
+      return;
+    }
+
+    const radius = cellSize * 0.175;
+    graphics.circle(centerX, centerY, radius).fill(COLORS.elementFill);
+  }
+
+  private createVictoryOverlay(width: number, height: number): Container {
+    const overlay = new Container();
+    overlay.eventMode = 'static';
+
+    const backdrop = new Graphics();
+    backdrop.rect(0, GAMEPLAY_HEADER_HEIGHT, width, height - GAMEPLAY_HEADER_HEIGHT).fill({
+      color: COLORS.victoryOverlay,
+      alpha: 0.85,
+    });
+    backdrop.alpha = 0;
+
+    const victoryText = new Text({
+      text: 'Victory!',
+      style: {
+        fill: COLORS.victoryText,
+        fontFamily: FONT_FAMILY,
+        fontSize: 48,
+        fontWeight: '700',
+      },
+    });
+    victoryText.anchor.set(0.5);
+    victoryText.x = width / 2;
+    victoryText.y = height / 2;
+    victoryText.alpha = 0;
+
+    overlay.addChild(backdrop, victoryText);
+
+    return overlay;
+  }
+
+  private showVictoryOverlay(): void {
+    if (!this.victoryOverlay || this.victoryOverlay.visible) {
+      return;
+    }
+
+    const backdrop = this.victoryOverlay.children[0];
+    const victoryText = this.victoryOverlay.children[1];
+
+    this.victoryOverlay.visible = true;
+    this.victoryOverlay.alpha = 1;
+
+    if (backdrop) {
+      backdrop.alpha = 0;
+      const backdropTween = gsap.to(backdrop, {
+        alpha: 0.85,
+        duration: 0.5,
+      });
+      this.trackTween(backdropTween);
+    }
+
+    if (victoryText) {
+      victoryText.alpha = 0;
+      const textTween = gsap.to(victoryText, {
+        alpha: 1,
+        duration: 0.5,
+      });
+      this.trackTween(textTween);
+    }
+  }
+
+  private clearGameplayRefs(): void {
+    this.timerText = null;
+    this.remainingText = null;
+    this.cellMarkerGraphics = [];
+    this.victoryOverlay = null;
+    this.currentCellSize = 0;
   }
 
   private createButton(options: {
