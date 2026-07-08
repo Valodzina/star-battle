@@ -1,4 +1,4 @@
-import { Application, Container, Graphics, Rectangle, Text } from 'pixi.js';
+import { Application, Container, FederatedPointerEvent, Graphics, Rectangle, Text } from 'pixi.js';
 import gsap from 'gsap';
 import type { CellState, Difficulty, GameplayState, GameState } from '../types/level';
 import { DIFFICULTY_META } from '../types/level';
@@ -17,7 +17,10 @@ export interface GameViewCallbacks {
   onDifficultySelected: (difficulty: Difficulty) => void;
   onBackSelected: () => void;
   onLevelSelected: (index: number) => void;
-  onCellClicked: (row: number, col: number) => void;
+  onCellTap: (row: number, col: number) => void;
+  onDragPaint: (row: number, col: number) => void;
+  onDragErase: (row: number, col: number) => void;
+  onInteractionEnd: () => void;
   onBackToLevels: () => void;
 }
 
@@ -44,7 +47,10 @@ export class GameView {
     onDifficultySelected: () => undefined,
     onBackSelected: () => undefined,
     onLevelSelected: () => undefined,
-    onCellClicked: () => undefined,
+    onCellTap: () => undefined,
+    onDragPaint: () => undefined,
+    onDragErase: () => undefined,
+    onInteractionEnd: () => undefined,
     onBackToLevels: () => undefined,
   };
 
@@ -53,6 +59,13 @@ export class GameView {
   private cellMarkerGraphics: Graphics[][] = [];
   private victoryOverlay: Container | null = null;
   private currentCellSize = 0;
+  private boardState: CellState[][] = [];
+  private boardSize = 0;
+  private pointerDownCell: { row: number; col: number } | null = null;
+  private startCellPlacement: CellState['placed'] | null = null;
+  private isDragging = false;
+  private dragMode: 'painting' | 'erasing' | null = null;
+  private lastEnteredCell: { row: number; col: number } | null = null;
 
   constructor(app: Application, levelManager: LevelManager) {
     this.app = app;
@@ -95,6 +108,8 @@ export class GameView {
     remainingElements: number,
     isVictory: boolean,
   ): void {
+    this.boardState = boardState;
+
     if (this.remainingText && !this.remainingText.destroyed) {
       this.remainingText.text = `Left: ${remainingElements}`;
     }
@@ -295,8 +310,9 @@ export class GameView {
     const gridLines = new Graphics();
     const regionBorders = new Graphics();
     const markersLayer = new Container();
-    const hitLayer = new Container();
     this.cellMarkerGraphics = [];
+    this.boardState = boardState;
+    this.boardSize = size;
 
     for (let row = 0; row < size; row += 1) {
       const markerRow: Graphics[] = [];
@@ -318,22 +334,134 @@ export class GameView {
         marker.y = y;
         markerRow.push(marker);
         markersLayer.addChild(marker);
-
-        const hitTarget = new Container();
-        hitTarget.x = x;
-        hitTarget.y = y;
-        hitTarget.eventMode = 'static';
-        hitTarget.cursor = 'pointer';
-        hitTarget.hitArea = new Rectangle(0, 0, cellSize, cellSize);
-        hitTarget.on('pointertap', () => this.callbacks.onCellClicked(row, col));
-        hitLayer.addChild(hitTarget);
       }
       this.cellMarkerGraphics.push(markerRow);
     }
 
     this.drawGridLines(gridLines, size, cellSize);
 
-    container.addChild(regionFills, gridLines, regionBorders, markersLayer, hitLayer);
+    container.addChild(regionFills, gridLines, regionBorders, markersLayer);
+    this.attachBoardPointerHandlers(container, size, cellSize);
+  }
+
+  private attachBoardPointerHandlers(container: Container, size: number, cellSize: number): void {
+    const boardWidth = size * cellSize;
+    const boardHeight = size * cellSize;
+
+    container.eventMode = 'static';
+    container.cursor = 'pointer';
+    container.hitArea = new Rectangle(0, 0, boardWidth, boardHeight);
+
+    container.on('pointerdown', (event: FederatedPointerEvent) => {
+      this.resetDragSession();
+      const cell = this.getCellFromLocalPoint(event.getLocalPosition(container));
+      if (!cell) {
+        return;
+      }
+
+      this.pointerDownCell = cell;
+      this.startCellPlacement = this.boardState[cell.row]?.[cell.col]?.placed ?? null;
+    });
+
+    container.on('globalpointermove', (event: FederatedPointerEvent) => {
+      if (!this.pointerDownCell) {
+        return;
+      }
+
+      const cell = this.getCellFromLocalPoint(event.getLocalPosition(container));
+      if (!cell) {
+        return;
+      }
+
+      if (
+        this.lastEnteredCell &&
+        this.lastEnteredCell.row === cell.row &&
+        this.lastEnteredCell.col === cell.col
+      ) {
+        return;
+      }
+
+      const crossedStartCell =
+        cell.row !== this.pointerDownCell.row || cell.col !== this.pointerDownCell.col;
+
+      if (crossedStartCell || this.isDragging) {
+        if (!this.isDragging) {
+          this.isDragging = true;
+          this.dragMode = this.resolveDragMode(this.startCellPlacement);
+          this.applyDragToCell(this.pointerDownCell.row, this.pointerDownCell.col);
+        }
+
+        this.applyDragToCell(cell.row, cell.col);
+      }
+
+      this.lastEnteredCell = cell;
+    });
+
+    const handlePointerUp = (event: FederatedPointerEvent): void => {
+      if (!this.pointerDownCell) {
+        return;
+      }
+
+      if (!this.isDragging) {
+        const cell = this.getCellFromLocalPoint(event.getLocalPosition(container));
+        if (
+          cell &&
+          cell.row === this.pointerDownCell.row &&
+          cell.col === this.pointerDownCell.col
+        ) {
+          this.callbacks.onCellTap(cell.row, cell.col);
+        }
+      } else {
+        this.callbacks.onInteractionEnd();
+      }
+
+      this.resetDragSession();
+    };
+
+    container.on('pointerup', handlePointerUp);
+    container.on('pointerupoutside', handlePointerUp);
+  }
+
+  private resolveDragMode(placement: CellState['placed'] | null): 'painting' | 'erasing' | null {
+    if (placement === 'nothing') {
+      return 'painting';
+    }
+
+    if (placement === 'dot') {
+      return 'erasing';
+    }
+
+    return null;
+  }
+
+  private applyDragToCell(row: number, col: number): void {
+    if (this.dragMode === 'painting') {
+      this.callbacks.onDragPaint(row, col);
+      return;
+    }
+
+    if (this.dragMode === 'erasing') {
+      this.callbacks.onDragErase(row, col);
+    }
+  }
+
+  private getCellFromLocalPoint(point: { x: number; y: number }): { row: number; col: number } | null {
+    const col = Math.floor(point.x / this.currentCellSize);
+    const row = Math.floor(point.y / this.currentCellSize);
+
+    if (row < 0 || row >= this.boardSize || col < 0 || col >= this.boardSize) {
+      return null;
+    }
+
+    return { row, col };
+  }
+
+  private resetDragSession(): void {
+    this.pointerDownCell = null;
+    this.startCellPlacement = null;
+    this.isDragging = false;
+    this.dragMode = null;
+    this.lastEnteredCell = null;
   }
 
   private drawGridLines(graphics: Graphics, size: number, cellSize: number): void {
@@ -478,11 +606,14 @@ export class GameView {
   }
 
   private clearGameplayRefs(): void {
+    this.resetDragSession();
     this.timerText = null;
     this.remainingText = null;
     this.cellMarkerGraphics = [];
     this.victoryOverlay = null;
     this.currentCellSize = 0;
+    this.boardState = [];
+    this.boardSize = 0;
   }
 
   private createButton(options: {

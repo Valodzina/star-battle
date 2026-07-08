@@ -18,6 +18,21 @@ export class GameController {
     this.view = new GameView(app, levelManager);
   }
 
+  /** Bypass menus and load a level directly (used by DEBUG_SKIP_TO_LEVEL in main.ts). */
+  skipToLevel(difficulty: Difficulty, index: number): void {
+    const level = this.levelManager.getLevel(difficulty, index);
+    if (!level) {
+      console.warn(
+        `[GameController] skipToLevel: no level at ${difficulty}[${index}]`,
+      );
+      return;
+    }
+
+    this.model.setDifficulty(difficulty);
+    this.model.loadLevel(level);
+    this.model.setScreen('gameplay');
+  }
+
   start(): void {
     this.wireViewCallbacks();
 
@@ -65,22 +80,23 @@ export class GameController {
         this.model.loadLevel(level);
         this.model.setScreen('gameplay');
       },
-      onCellClicked: (row: number, col: number) => {
+      onCellTap: (row: number, col: number) => {
         this.model.cycleCell(row, col);
-        const gameplay = this.model.getGameplay();
-        if (!gameplay) {
-          return;
+        this.syncGameplayBoard();
+      },
+      onDragPaint: (row: number, col: number) => {
+        if (this.model.paintDot(row, col)) {
+          this.syncGameplayBoard();
         }
-
-        this.view.updateGameplayBoard(
-          gameplay.boardState,
-          gameplay.remainingElements,
-          gameplay.isVictory,
-        );
-
-        if (gameplay.isVictory) {
-          this.stopTimer();
+      },
+      onDragErase: (row: number, col: number) => {
+        if (this.model.eraseDot(row, col)) {
+          this.syncGameplayBoard();
         }
+      },
+      onInteractionEnd: () => {
+        this.model.finalizeInteraction();
+        this.syncGameplayBoard();
       },
       onBackToLevels: () => {
         this.stopTimer();
@@ -88,6 +104,23 @@ export class GameController {
         this.model.setScreen('levelSelect');
       },
     });
+  }
+
+  private syncGameplayBoard(): void {
+    const gameplay = this.model.getGameplay();
+    if (!gameplay) {
+      return;
+    }
+
+    this.view.updateGameplayBoard(
+      gameplay.boardState,
+      gameplay.remainingElements,
+      gameplay.isVictory,
+    );
+
+    if (gameplay.isVictory) {
+      this.stopTimer();
+    }
   }
 
   private startTimer(): void {

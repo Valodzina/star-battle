@@ -5,6 +5,10 @@ import { GameController } from './game/GameController';
 import { LevelManager } from './services/LevelManager';
 import { COLORS } from './ui/colors';
 
+// DEBUG MODE: Set to true to bypass menus and load the first Easy level immediately.
+// Set to false (or comment out the skip block below) to restore the normal Main Menu flow.
+const DEBUG_SKIP_TO_LEVEL = true;
+
 async function bootstrap(): Promise<void> {
   const app = new Application();
 
@@ -21,7 +25,15 @@ async function bootstrap(): Promise<void> {
   }
 
   const levelManager = new LevelManager();
-  new GameController(app, levelManager).start();
+  const controller = new GameController(app, levelManager);
+
+  // Wire callbacks, subscribe to state, and render — same init path in both modes.
+  controller.start();
+
+  if (DEBUG_SKIP_TO_LEVEL) {
+    // Jump straight into easy level 1 (index 0) after Pixi, LevelManager, and Controller are ready.
+    controller.skipToLevel('easy', 0);
+  }
 }
 
 bootstrap().catch((error: unknown) => {

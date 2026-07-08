@@ -94,26 +94,43 @@ export class GameModel {
     const currentIndex = PLACEMENT_CYCLE.indexOf(cell.placed);
     const nextPlacement = PLACEMENT_CYCLE[(currentIndex + 1) % PLACEMENT_CYCLE.length] ?? 'nothing';
 
-    const boardState = gameplay.boardState.map((boardRow, rowIndex) =>
-      boardRow.map((boardCell, colIndex) =>
-        rowIndex === row && colIndex === col
-          ? { ...boardCell, placed: nextPlacement }
-          : boardCell,
-      ),
-    );
+    if (!this.setCellPlacement(row, col, nextPlacement)) {
+      return;
+    }
 
-    const remainingElements = gameplay.level.size * gameplay.level.k - this.countElements(boardState);
-    const isVictory = this.validateWin(boardState, gameplay.level);
+    this.updateGameplayFromBoard();
+  }
 
-    this.state = {
-      ...this.state,
-      gameplay: {
-        ...gameplay,
-        boardState,
-        remainingElements,
-        isVictory,
-      },
-    };
+  paintDot(row: number, col: number): boolean {
+    const gameplay = this.state.gameplay;
+    if (!gameplay || gameplay.isVictory) {
+      return false;
+    }
+
+    const cell = gameplay.boardState[row]?.[col];
+    if (!cell || cell.placed !== 'nothing') {
+      return false;
+    }
+
+    return this.setCellPlacement(row, col, 'dot');
+  }
+
+  eraseDot(row: number, col: number): boolean {
+    const gameplay = this.state.gameplay;
+    if (!gameplay || gameplay.isVictory) {
+      return false;
+    }
+
+    const cell = gameplay.boardState[row]?.[col];
+    if (!cell || cell.placed !== 'dot') {
+      return false;
+    }
+
+    return this.setCellPlacement(row, col, 'nothing');
+  }
+
+  finalizeInteraction(): void {
+    this.updateGameplayFromBoard();
   }
 
   tickTimer(): void {
@@ -142,6 +159,56 @@ export class GameModel {
     for (const listener of this.listeners) {
       listener(this.state);
     }
+  }
+
+  private setCellPlacement(row: number, col: number, placement: CellPlacement): boolean {
+    const gameplay = this.state.gameplay;
+    if (!gameplay) {
+      return false;
+    }
+
+    const cell = gameplay.boardState[row]?.[col];
+    if (!cell || cell.placed === placement) {
+      return false;
+    }
+
+    const boardState = gameplay.boardState.map((boardRow, rowIndex) =>
+      boardRow.map((boardCell, colIndex) =>
+        rowIndex === row && colIndex === col
+          ? { ...boardCell, placed: placement }
+          : boardCell,
+      ),
+    );
+
+    this.state = {
+      ...this.state,
+      gameplay: {
+        ...gameplay,
+        boardState,
+      },
+    };
+
+    return true;
+  }
+
+  private updateGameplayFromBoard(): void {
+    const gameplay = this.state.gameplay;
+    if (!gameplay) {
+      return;
+    }
+
+    const remainingElements =
+      gameplay.level.size * gameplay.level.k - this.countElements(gameplay.boardState);
+    const isVictory = this.validateWin(gameplay.boardState, gameplay.level);
+
+    this.state = {
+      ...this.state,
+      gameplay: {
+        ...gameplay,
+        remainingElements,
+        isVictory,
+      },
+    };
   }
 
   private countElements(boardState: CellState[][]): number {
