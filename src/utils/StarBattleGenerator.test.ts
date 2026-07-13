@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { generateGroundTruth, growRegions } from './StarBattleGenerator';
+import { DIFFICULTY_ORDER } from '../types/level';
+import { LevelManager } from '../services/LevelManager';
+import { solve } from './StarBattleSolver';
+import { generateGroundTruth, generateLevel, growRegions } from './StarBattleGenerator';
 
 const MOORE_OFFSETS: ReadonlyArray<readonly [number, number]> = [
   [-1, -1],
@@ -198,5 +201,103 @@ describe('StarBattleGenerator', () => {
       const unique = new Set(layouts.map((g) => JSON.stringify(g)));
       expect(unique.size).toBeGreaterThan(1);
     });
+  });
+
+  describe('generateLevel', () => {
+    function bundledFingerprints(): Set<string> {
+      const fingerprints = new Set<string>();
+      const manager = new LevelManager();
+      for (const difficulty of DIFFICULTY_ORDER) {
+        for (const level of manager.getAllLevels(difficulty)) {
+          fingerprints.add(JSON.stringify(level.grid));
+        }
+      }
+      return fingerprints;
+    }
+
+    it(
+      'generates a unique easy level solvable with basic rules only',
+      () => {
+        const level = generateLevel(6, 1, 'easy');
+        expect(level.size).toBe(6);
+        expect(level.k).toBe(1);
+        expect(level.difficulty).toBe('easy');
+        expect(bundledFingerprints().has(JSON.stringify(level.grid))).toBe(false);
+
+        assertRegionsContiguous(level.grid);
+
+        const basicOnly = solve(6, 1, level.grid, {
+          useIntersectionPatterns: false,
+          useGeometryConstraints: false,
+          useSectorCapture: false,
+        });
+        expect(basicOnly.isSolvable).toBe(true);
+        expect(basicOnly.tiersUsed).toEqual(['basic']);
+      },
+      30_000,
+    );
+
+    it(
+      'generates a medium level that needs intersection but not geometry/sector',
+      () => {
+        const level = generateLevel(10, 1, 'medium');
+        expect(level.size).toBe(10);
+        expect(level.k).toBe(1);
+        expect(level.difficulty).toBe('medium');
+
+        assertRegionsContiguous(level.grid);
+
+        const basicOnly = solve(10, 1, level.grid, {
+          useIntersectionPatterns: false,
+          useGeometryConstraints: false,
+          useSectorCapture: false,
+        });
+        const upToIntersection = solve(10, 1, level.grid, {
+          useGeometryConstraints: false,
+          useSectorCapture: false,
+        });
+        expect(basicOnly.isSolvable).toBe(false);
+        expect(upToIntersection.isSolvable).toBe(true);
+        expect(upToIntersection.tiersUsed).toContain('intersection');
+      },
+      60_000,
+    );
+
+    it(
+      'generates a hard level that needs geometry or sector',
+      () => {
+        // k=2 random regions are rarely deductively solvable from flood-fill alone;
+        // climb difficulty from a constrained k=1 board instead.
+        const level = generateLevel(10, 1, 'hard');
+        expect(level.size).toBe(10);
+        expect(level.k).toBe(1);
+        expect(level.difficulty).toBe('hard');
+
+        assertRegionsContiguous(level.grid);
+
+        const upToIntersection = solve(10, 1, level.grid, {
+          useGeometryConstraints: false,
+          useSectorCapture: false,
+        });
+        const full = solve(10, 1, level.grid);
+        expect(upToIntersection.isSolvable).toBe(false);
+        expect(full.isSolvable).toBe(true);
+        const hardTier = full.tiersUsed.filter(
+          (tier) => tier === 'geometry' || tier === 'sector',
+        );
+        expect(hardTier.length).toBeGreaterThan(0);
+      },
+      90_000,
+    );
+
+    it(
+      'avoids excluded existing grids',
+      () => {
+        const first = generateLevel(6, 1, 'easy');
+        const second = generateLevel(6, 1, 'easy', { existingGrids: [first.grid] });
+        expect(JSON.stringify(second.grid)).not.toBe(JSON.stringify(first.grid));
+      },
+      30_000,
+    );
   });
 });

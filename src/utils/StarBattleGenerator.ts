@@ -1,3 +1,8 @@
+import type { Difficulty, LevelData } from '../types/level';
+import { DIFFICULTY_ORDER } from '../types/level';
+import { LevelManager } from '../services/LevelManager';
+import { solve } from './StarBattleSolver';
+
 const MOORE_OFFSETS: ReadonlyArray<readonly [number, number]> = [
   [-1, -1],
   [-1, 0],
@@ -18,6 +23,8 @@ const ORTHO_OFFSETS: ReadonlyArray<readonly [number, number]> = [
 
 const UNASSIGNED = -1;
 const MAX_GROW_ATTEMPTS = 500;
+const DEFAULT_MAX_BOARD_ATTEMPTS = 200;
+const DEFAULT_MAX_MUTATIONS_PER_BOARD = 200;
 
 type Cell = { row: number; col: number };
 
@@ -247,6 +254,7 @@ function floodFillFromSeeds(
   size: number,
   seedCells: Cell[],
   seedIds: Map<string, number>,
+  frozenRegionIds: ReadonlySet<number> = new Set(),
 ): number[][] {
   const regionGrid = createUnassignedRegionGrid(size);
 
@@ -255,20 +263,34 @@ function floodFillFromSeeds(
     regionGrid[Number(rowStr)]![Number(colStr)] = regionId;
   }
 
-  const frontierKeys = new Set<string>();
-  for (const { row, col } of seedCells) {
-    for (const neighbor of getOrthoNeighbors(row, col, size)) {
-      if (regionGrid[neighbor.row]![neighbor.col] === UNASSIGNED) {
-        frontierKeys.add(cellKey(neighbor.row, neighbor.col));
+  const rebuildFrontier = (): Set<string> => {
+    const next = new Set<string>();
+    for (let row = 0; row < size; row += 1) {
+      for (let col = 0; col < size; col += 1) {
+        if (regionGrid[row]![col] !== UNASSIGNED) {
+          continue;
+        }
+        for (const neighbor of getOrthoNeighbors(row, col, size)) {
+          const neighborId = regionGrid[neighbor.row]![neighbor.col]!;
+          if (neighborId !== UNASSIGNED && !frozenRegionIds.has(neighborId)) {
+            next.add(cellKey(row, col));
+            break;
+          }
+        }
       }
     }
-  }
+    return next;
+  };
 
+  let frontierKeys = rebuildFrontier();
   let remaining = size * size - seedCells.length;
 
   while (remaining > 0) {
     if (frontierKeys.size === 0) {
-      throw new Error('Region growth stalled: frontier empty with unassigned cells remaining');
+      frontierKeys = rebuildFrontier();
+      if (frontierKeys.size === 0) {
+        throw new Error('Region growth stalled: frontier empty with unassigned cells remaining');
+      }
     }
 
     const frontierList = [...frontierKeys];
@@ -280,7 +302,7 @@ function floodFillFromSeeds(
     const adjacentRegionIds: number[] = [];
     for (const neighbor of getOrthoNeighbors(row, col, size)) {
       const regionId = regionGrid[neighbor.row]![neighbor.col]!;
-      if (regionId !== UNASSIGNED) {
+      if (regionId !== UNASSIGNED && !frozenRegionIds.has(regionId)) {
         adjacentRegionIds.push(regionId);
       }
     }
@@ -441,8 +463,34 @@ function mergeRegionsToTarget(
   return remapRegionIds(regionGrid);
 }
 
-function tryGrowRegions(size: number, k: number, groundTruth: boolean[][]): number[][] | null {
+function tryGrowRegions(
+  size: number,
+  k: number,
+  groundTruth: boolean[][],
+  options?: { freezeSingletonCount?: number },
+): number[][] | null {
   const objects = collectObjectCells(groundTruth);
+  const freezeCount = Math.min(
+    options?.freezeSingletonCount ?? 0,
+    k === 1 ? objects.length - 1 : 0,
+  );
+
+  if (freezeCount > 0 && k === 1) {
+    const shuffled = [...objects];
+    shuffleInPlace(shuffled);
+    const seedIds = new Map<string, number>();
+    for (let regionId = 0; regionId < size; regionId += 1) {
+      const cell = shuffled[regionId]!;
+      seedIds.set(cellKey(cell.row, cell.col), regionId);
+    }
+    const frozenRegionIds = new Set<number>();
+    for (let regionId = 0; regionId < freezeCount; regionId += 1) {
+      frozenRegionIds.add(regionId);
+    }
+    const regionGrid = floodFillFromSeeds(size, objects, seedIds, frozenRegionIds);
+    return remapRegionIds(regionGrid);
+  }
+
   const seedIds = assignPerObjectSeedIds(objects, size, k);
   const regionGrid = floodFillFromSeeds(size, objects, seedIds);
 
@@ -458,12 +506,20 @@ function tryGrowRegions(size: number, k: number, groundTruth: boolean[][]): numb
  * For k=1 each object is its own region seed. For k>1, grows one proto-region per
  * object via randomized flood fill, then randomly merges adjacent proto-regions into
  * N regions of exactly k objects each (guaranteeing contiguity).
+ *
+ * `freezeSingletonCount` (k=1 only) keeps that many regions as single cells —
+ * Hidden Single force-starters that make deductively solvable puzzles much more likely.
  */
-export function growRegions(size: number, k: number, groundTruth: boolean[][]): number[][] {
+export function growRegions(
+  size: number,
+  k: number,
+  groundTruth: boolean[][],
+  options?: { freezeSingletonCount?: number },
+): number[][] {
   validateGroundTruth(size, k, groundTruth);
 
   for (let attempt = 0; attempt < MAX_GROW_ATTEMPTS; attempt += 1) {
-    const regionGrid = tryGrowRegions(size, k, groundTruth);
+    const regionGrid = tryGrowRegions(size, k, groundTruth, options);
     if (regionGrid && areAllRegionsContiguous(regionGrid)) {
       return regionGrid;
     }
@@ -473,5 +529,276 @@ export function growRegions(size: number, k: number, groundTruth: boolean[][]): 
     `Failed to grow contiguous regions for size=${size}, k=${k} after ${MAX_GROW_ATTEMPTS} attempts`,
   );
 }
+
+function cloneRegionGrid(regionGrid: number[][]): number[][] {
+  return regionGrid.map((row) => [...row]);
+}
+
+function gridFingerprint(regionGrid: number[][]): string {
+  return JSON.stringify(regionGrid);
+}
+
+function shortHash(fingerprint: string): string {
+  let hash = 2166136261;
+  for (let i = 0; i < fingerprint.length; i += 1) {
+    hash ^= fingerprint.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0');
+}
+
+function matchesTargetDifficulty(
+  size: number,
+  k: number,
+  regionGrid: number[][],
+  targetDifficulty: Difficulty,
+): boolean {
+  const full = solve(size, k, regionGrid);
+  if (!full.isSolvable) {
+    return false;
+  }
+
+  const basicOnly = solve(size, k, regionGrid, {
+    useIntersectionPatterns: false,
+    useGeometryConstraints: false,
+    useSectorCapture: false,
+  });
+
+  if (targetDifficulty === 'easy') {
+    return basicOnly.isSolvable;
+  }
+
+  const upToIntersection = solve(size, k, regionGrid, {
+    useGeometryConstraints: false,
+    useSectorCapture: false,
+  });
+
+  if (targetDifficulty === 'medium') {
+    return !basicOnly.isSolvable && upToIntersection.isSolvable;
+  }
+
+  // hard: full solve works, but basic+intersection alone is not enough
+  return !upToIntersection.isSolvable;
+}
+
+function collectExistingFingerprints(existingGrids?: number[][][]): Set<string> {
+  const fingerprints = new Set<string>();
+  const manager = new LevelManager();
+
+  for (const difficulty of DIFFICULTY_ORDER) {
+    for (const level of manager.getAllLevels(difficulty)) {
+      fingerprints.add(gridFingerprint(level.grid));
+    }
+  }
+
+  for (const grid of existingGrids ?? []) {
+    fingerprints.add(gridFingerprint(grid));
+  }
+
+  return fingerprints;
+}
+
+function collectBorderMutationCandidates(
+  regionGrid: number[][],
+  groundTruth: boolean[][],
+): Array<{ row: number; col: number; neighborRegionIds: number[] }> {
+  const size = regionGrid.length;
+  const candidates: Array<{ row: number; col: number; neighborRegionIds: number[] }> = [];
+
+  for (let row = 0; row < size; row += 1) {
+    for (let col = 0; col < size; col += 1) {
+      if (groundTruth[row]![col]) {
+        continue;
+      }
+
+      const currentId = regionGrid[row]![col]!;
+      const neighborRegionIds = new Set<number>();
+      for (const neighbor of getOrthoNeighbors(row, col, size)) {
+        const neighborId = regionGrid[neighbor.row]![neighbor.col]!;
+        if (neighborId !== currentId) {
+          neighborRegionIds.add(neighborId);
+        }
+      }
+
+      if (neighborRegionIds.size > 0) {
+        candidates.push({ row, col, neighborRegionIds: [...neighborRegionIds] });
+      }
+    }
+  }
+
+  return candidates;
+}
+
+/**
+ * Attempts one safe border mutation: move a non-object border cell into a neighboring region
+ * without breaking contiguity of any region.
+ */
+function tryMutateBorder(
+  regionGrid: number[][],
+  groundTruth: boolean[][],
+): number[][] | null {
+  const candidates = collectBorderMutationCandidates(regionGrid, groundTruth);
+  shuffleInPlace(candidates);
+
+  for (const candidate of candidates) {
+    const neighborIds = [...candidate.neighborRegionIds];
+    shuffleInPlace(neighborIds);
+
+    for (const targetId of neighborIds) {
+      const mutated = cloneRegionGrid(regionGrid);
+      mutated[candidate.row]![candidate.col] = targetId;
+      if (areAllRegionsContiguous(mutated)) {
+        return mutated;
+      }
+    }
+  }
+
+  return null;
+}
+
+function isFullySolvable(size: number, k: number, regionGrid: number[][]): boolean {
+  return solve(size, k, regionGrid).isSolvable;
+}
+
+/**
+ * Tries several random border mutations. When `requireSolvable` is true, only returns
+ * a mutation that remains uniquely deductively solvable.
+ */
+function trySolvabilityAwareMutation(
+  regionGrid: number[][],
+  groundTruth: boolean[][],
+  size: number,
+  k: number,
+  requireSolvable: boolean,
+  maxTries = 40,
+): number[][] | null {
+  for (let attempt = 0; attempt < maxTries; attempt += 1) {
+    const mutated = tryMutateBorder(regionGrid, groundTruth);
+    if (!mutated) {
+      return null;
+    }
+    if (!requireSolvable || isFullySolvable(size, k, mutated)) {
+      return mutated;
+    }
+  }
+  return null;
+}
+
+/** How many singleton force-starters to freeze for an initial solvable-biased board. */
+function initialFreezeSingletonCount(
+  size: number,
+  k: number,
+  targetDifficulty: Difficulty,
+): number {
+  if (k !== 1) {
+    return 0;
+  }
+  if (targetDifficulty === 'easy') {
+    return size <= 6 ? 1 : Math.max(1, Math.floor(size * 0.5));
+  }
+  // medium/hard: start highly constrained, then climb difficulty via mutations
+  return Math.max(1, Math.floor(size * 0.8));
+}
+
+function toLevelData(
+  size: number,
+  k: number,
+  targetDifficulty: Difficulty,
+  regionGrid: number[][],
+): LevelData {
+  const fingerprint = gridFingerprint(regionGrid);
+  return {
+    id: `generated_${targetDifficulty}_${shortHash(fingerprint)}`,
+    size,
+    k,
+    difficulty: targetDifficulty,
+    grid: regionGrid,
+  };
+}
+
+export interface GenerateLevelOptions {
+  existingGrids?: number[][][];
+  maxBoardAttempts?: number;
+  maxMutationsPerBoard?: number;
+}
+
+/**
+ * Full level pipeline: ground truth → region growth → solver validation with
+ * difficulty-tier matching. On stall, applies safe border mutations; after enough
+ * failed mutations, discards the board and regenerates.
+ */
+export function generateLevel(
+  size: number,
+  k: number,
+  targetDifficulty: Difficulty,
+  options?: GenerateLevelOptions,
+): LevelData {
+  if (!Number.isInteger(size) || size < 1) {
+    throw new Error(`size must be an integer >= 1, got ${size}`);
+  }
+  if (!Number.isInteger(k) || k < 1 || k > size) {
+    throw new Error(`k must be an integer in [1, size], got ${k}`);
+  }
+
+  const maxBoardAttempts = options?.maxBoardAttempts ?? DEFAULT_MAX_BOARD_ATTEMPTS;
+  const maxMutationsPerBoard =
+    options?.maxMutationsPerBoard ?? DEFAULT_MAX_MUTATIONS_PER_BOARD;
+  const seenFingerprints = collectExistingFingerprints(options?.existingGrids);
+  const freezeSingletonCount = initialFreezeSingletonCount(size, k, targetDifficulty);
+
+  for (let boardAttempt = 0; boardAttempt < maxBoardAttempts; boardAttempt += 1) {
+    const groundTruth = generateGroundTruth(size, k);
+    let regionGrid = growRegions(size, k, groundTruth, { freezeSingletonCount });
+
+    // Prefer starting from a solvable board when we have force-starters available.
+    if (freezeSingletonCount > 0 && !isFullySolvable(size, k, regionGrid)) {
+      let recovered: number[][] | null = null;
+      for (let retry = 0; retry < 15; retry += 1) {
+        const candidate = growRegions(size, k, groundTruth, { freezeSingletonCount });
+        if (isFullySolvable(size, k, candidate)) {
+          recovered = candidate;
+          break;
+        }
+      }
+      if (!recovered) {
+        continue;
+      }
+      regionGrid = recovered;
+    }
+
+    for (let mutation = 0; mutation <= maxMutationsPerBoard; mutation += 1) {
+      const fingerprint = gridFingerprint(regionGrid);
+
+      if (!seenFingerprints.has(fingerprint)) {
+        if (matchesTargetDifficulty(size, k, regionGrid, targetDifficulty)) {
+          return toLevelData(size, k, targetDifficulty, regionGrid);
+        }
+      }
+
+      if (mutation === maxMutationsPerBoard) {
+        break;
+      }
+
+      const currentlySolvable = isFullySolvable(size, k, regionGrid);
+      const mutated = trySolvabilityAwareMutation(
+        regionGrid,
+        groundTruth,
+        size,
+        k,
+        currentlySolvable,
+      );
+      if (!mutated) {
+        break;
+      }
+      regionGrid = mutated;
+    }
+  }
+
+  throw new Error(
+    `Failed to generate a ${targetDifficulty} level for size=${size}, k=${k} after ${maxBoardAttempts} board attempts`,
+  );
+}
+
+
 
 
