@@ -14,7 +14,7 @@ export const COLORS = {
   cellPlayable: 0x2e2e4e,
   cellEmpty: 0x1a1a2e,
   elementFill: 0xf4a261,
-  dotFill: 0x6c757d,
+  dotFill: 0xffffff,
   victoryOverlay: 0x000000,
   victoryText: 0xffffff,
 } as const;
