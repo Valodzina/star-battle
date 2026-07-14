@@ -745,8 +745,20 @@ export function generateLevel(
     options?.maxMutationsPerBoard ?? DEFAULT_MAX_MUTATIONS_PER_BOARD;
   const seenFingerprints = collectExistingFingerprints(options?.existingGrids);
   const freezeSingletonCount = initialFreezeSingletonCount(size, k, targetDifficulty);
+  const expectedStars = size * k;
+
+  const startTime = performance.now();
+  console.log(
+    `[Generator] Starting generation: Size ${size}x${size}, K=${k}, Difficulty: ${targetDifficulty}...`,
+  );
+  console.log(
+    `[Generator] Pipeline: stars=${expectedStars}, regions=${size}, freezeSingletons=${freezeSingletonCount}, maxBoardAttempts=${maxBoardAttempts}, maxMutationsPerBoard=${maxMutationsPerBoard}`,
+  );
+
+  let boardsTried = 0;
 
   for (let boardAttempt = 0; boardAttempt < maxBoardAttempts; boardAttempt += 1) {
+    boardsTried += 1;
     const groundTruth = generateGroundTruth(size, k);
     let regionGrid = growRegions(size, k, groundTruth, { freezeSingletonCount });
 
@@ -761,6 +773,9 @@ export function generateLevel(
         }
       }
       if (!recovered) {
+        console.warn(
+          `[Generator] Board attempt ${boardsTried}/${maxBoardAttempts} failed solvability recovery; regenerating board.`,
+        );
         continue;
       }
       regionGrid = recovered;
@@ -771,11 +786,22 @@ export function generateLevel(
 
       if (!seenFingerprints.has(fingerprint)) {
         if (matchesTargetDifficulty(size, k, regionGrid, targetDifficulty)) {
-          return toLevelData(size, k, targetDifficulty, regionGrid);
+          const level = toLevelData(size, k, targetDifficulty, regionGrid);
+          const elapsed = performance.now() - startTime;
+          console.log(
+            `[Generator] Success! Generated level "${level.id}" in ${elapsed.toFixed(2)}ms.`,
+          );
+          console.log(
+            `[Generator] Stats: boardsTried=${boardsTried}, mutationsOnWinningBoard=${mutation}, stars=${expectedStars}, regions=${size}`,
+          );
+          return level;
         }
       }
 
       if (mutation === maxMutationsPerBoard) {
+        console.warn(
+          `[Generator] Board attempt ${boardsTried}/${maxBoardAttempts} exhausted max mutations (${maxMutationsPerBoard}); regenerating board.`,
+        );
         break;
       }
 
@@ -788,12 +814,19 @@ export function generateLevel(
         currentlySolvable,
       );
       if (!mutated) {
+        console.warn(
+          `[Generator] Board attempt ${boardsTried}/${maxBoardAttempts} mutations stalled after ${mutation} mutations; regenerating board.`,
+        );
         break;
       }
       regionGrid = mutated;
     }
   }
 
+  const elapsed = performance.now() - startTime;
+  console.error(
+    `[Generator] Failed after ${elapsed.toFixed(2)}ms: could not generate ${targetDifficulty} level for size=${size}, k=${k} after ${boardsTried} board attempts.`,
+  );
   throw new Error(
     `Failed to generate a ${targetDifficulty} level for size=${size}, k=${k} after ${maxBoardAttempts} board attempts`,
   );
