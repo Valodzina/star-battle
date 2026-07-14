@@ -22,6 +22,10 @@ export interface GameViewCallbacks {
   onDragErase: (row: number, col: number) => void;
   onInteractionEnd: () => void;
   onBackToLevels: () => void;
+  // --- DEBUG_MODE panel ---
+  onShowSolution: () => void;
+  onNewBoard: () => void;
+  // --- END DEBUG_MODE panel ---
 }
 
 function formatTime(seconds: number): string {
@@ -42,6 +46,9 @@ export class GameView {
   private readonly root = new Container();
   private readonly app: Application;
   private readonly levelManager: LevelManager;
+  // --- DEBUG_MODE panel ---
+  private readonly debugMode: boolean;
+  // --- END DEBUG_MODE panel ---
   private readonly activeTweens = new Set<gsap.core.Tween>();
   private callbacks: GameViewCallbacks = {
     onDifficultySelected: () => undefined,
@@ -52,12 +59,19 @@ export class GameView {
     onDragErase: () => undefined,
     onInteractionEnd: () => undefined,
     onBackToLevels: () => undefined,
+    // --- DEBUG_MODE panel ---
+    onShowSolution: () => undefined,
+    onNewBoard: () => undefined,
+    // --- END DEBUG_MODE panel ---
   };
 
   private timerText: Text | null = null;
   private remainingText: Text | null = null;
   private cellMarkerGraphics: Graphics[][] = [];
   private victoryOverlay: Container | null = null;
+  // --- DEBUG_MODE panel ---
+  private solutionOverlay: Graphics | null = null;
+  // --- END DEBUG_MODE panel ---
   private currentCellSize = 0;
   private boardState: CellState[][] = [];
   private boardSize = 0;
@@ -67,9 +81,10 @@ export class GameView {
   private dragMode: 'painting' | 'erasing' | null = null;
   private lastEnteredCell: { row: number; col: number } | null = null;
 
-  constructor(app: Application, levelManager: LevelManager) {
+  constructor(app: Application, levelManager: LevelManager, debugMode = false) {
     this.app = app;
     this.levelManager = levelManager;
+    this.debugMode = debugMode;
     this.app.stage.addChild(this.root);
   }
 
@@ -128,6 +143,37 @@ export class GameView {
       this.showVictoryOverlay();
     }
   }
+
+  // --- DEBUG_MODE panel ---
+  showSolutionOverlay(cells: Array<{ row: number; col: number }>): void {
+    if (!this.debugMode || !this.solutionOverlay || this.solutionOverlay.destroyed) {
+      return;
+    }
+
+    const cellSize = this.currentCellSize;
+    const radius = cellSize * 0.175;
+    this.solutionOverlay.clear();
+
+    for (const { row, col } of cells) {
+      const centerX = col * cellSize + cellSize / 2;
+      const centerY = row * cellSize + cellSize / 2;
+      this.solutionOverlay
+        .circle(centerX, centerY, radius)
+        .fill({ color: COLORS.answerColor, alpha: 0.55 });
+    }
+
+    this.solutionOverlay.visible = true;
+  }
+
+  clearSolutionOverlay(): void {
+    if (!this.solutionOverlay || this.solutionOverlay.destroyed) {
+      return;
+    }
+
+    this.solutionOverlay.clear();
+    this.solutionOverlay.visible = false;
+  }
+  // --- END DEBUG_MODE panel ---
 
   private renderMainMenu(): void {
     const { width, height } = this.app.screen;
@@ -276,7 +322,16 @@ export class GameView {
 
     const boardAreaTop = SCREEN_PADDING + GAMEPLAY_HEADER_HEIGHT;
     const boardAreaWidth = width - SCREEN_PADDING * 2;
-    const boardAreaHeight = height - boardAreaTop - SCREEN_PADDING;
+    let boardBottomReserve = 0;
+    // --- DEBUG_MODE panel ---
+    const debugButtonHeight = 40;
+    const debugButtonGap = 12;
+    if (this.debugMode) {
+      boardBottomReserve = debugButtonHeight + debugButtonGap;
+    }
+    // --- END DEBUG_MODE panel ---
+    const boardAreaHeight = height - boardAreaTop - SCREEN_PADDING - boardBottomReserve;
+
     this.currentCellSize = Math.floor(
       Math.min(boardAreaWidth / size, boardAreaHeight / size),
     );
@@ -289,6 +344,38 @@ export class GameView {
 
     this.buildBoard(boardContainer, boardState, size, this.currentCellSize);
     this.root.addChild(boardContainer);
+
+    // --- DEBUG_MODE panel ---
+    if (this.debugMode) {
+      const solutionButtonWidth = 160;
+      const newBoardButtonWidth = 140;
+      const panelWidth = solutionButtonWidth + BUTTON_GAP + newBoardButtonWidth;
+      const panelX = (width - panelWidth) / 2;
+      const panelY = boardContainer.y + boardHeight + debugButtonGap;
+
+      const solutionButton = this.createButton({
+        width: solutionButtonWidth,
+        height: debugButtonHeight,
+        label: 'Show Solution',
+        color: COLORS.buttonEasy,
+        onClick: () => this.callbacks.onShowSolution(),
+      });
+      solutionButton.x = panelX;
+      solutionButton.y = panelY;
+      this.root.addChild(solutionButton);
+
+      const newBoardButton = this.createButton({
+        width: newBoardButtonWidth,
+        height: debugButtonHeight,
+        label: 'New Board',
+        color: COLORS.buttonMedium,
+        onClick: () => this.callbacks.onNewBoard(),
+      });
+      newBoardButton.x = panelX + solutionButtonWidth + BUTTON_GAP;
+      newBoardButton.y = panelY;
+      this.root.addChild(newBoardButton);
+    }
+    // --- END DEBUG_MODE panel ---
 
     this.victoryOverlay = this.createVictoryOverlay(width, height);
     this.victoryOverlay.visible = false;
@@ -341,6 +428,13 @@ export class GameView {
     this.drawGridLines(gridLines, size, cellSize);
 
     container.addChild(regionFills, gridLines, regionBorders, markersLayer);
+    // --- DEBUG_MODE panel ---
+    if (this.debugMode) {
+      this.solutionOverlay = new Graphics();
+      this.solutionOverlay.visible = false;
+      container.addChild(this.solutionOverlay);
+    }
+    // --- END DEBUG_MODE panel ---
     this.attachBoardPointerHandlers(container, size, cellSize);
   }
 
@@ -611,6 +705,9 @@ export class GameView {
     this.remainingText = null;
     this.cellMarkerGraphics = [];
     this.victoryOverlay = null;
+    // --- DEBUG_MODE panel ---
+    this.solutionOverlay = null;
+    // --- END DEBUG_MODE panel ---
     this.currentCellSize = 0;
     this.boardState = [];
     this.boardSize = 0;

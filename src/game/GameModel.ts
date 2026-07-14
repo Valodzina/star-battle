@@ -21,6 +21,10 @@ export class GameModel {
 
   private readonly listeners = new Set<GameStateListener>();
 
+  // --- DEBUG_MODE panel ---
+  private solutionHighlight: Array<{ row: number; col: number }> | null = null;
+  // --- END DEBUG_MODE panel ---
+
   getState(): GameState {
     return this.state;
   }
@@ -32,6 +36,24 @@ export class GameModel {
   getGameplay(): GameplayState | null {
     return this.state.gameplay;
   }
+
+  // --- DEBUG_MODE panel ---
+  setSolutionHighlight(cells: Array<{ row: number; col: number }>): void {
+    this.solutionHighlight = cells;
+  }
+
+  clearSolutionHighlight(): void {
+    this.solutionHighlight = null;
+  }
+
+  getSolutionHighlight(): Array<{ row: number; col: number }> | null {
+    return this.solutionHighlight;
+  }
+
+  isShowingSolution(): boolean {
+    return this.solutionHighlight !== null;
+  }
+  // --- END DEBUG_MODE panel ---
 
   setScreen(screen: ScreenId): void {
     if (this.state.screen === screen) {
@@ -52,6 +74,10 @@ export class GameModel {
   }
 
   loadLevel(level: LevelData): void {
+    // --- DEBUG_MODE panel ---
+    this.clearSolutionHighlight();
+    // --- END DEBUG_MODE panel ---
+
     const boardState = level.grid.map((row, rowIndex) =>
       row.map((regionId, colIndex) => ({
         row: rowIndex,
@@ -77,6 +103,10 @@ export class GameModel {
       return;
     }
 
+    // --- DEBUG_MODE panel ---
+    this.clearSolutionHighlight();
+    // --- END DEBUG_MODE panel ---
+
     this.state = { ...this.state, gameplay: null };
   }
 
@@ -85,6 +115,10 @@ export class GameModel {
     if (!gameplay || gameplay.isVictory) {
       return;
     }
+
+    // --- DEBUG_MODE panel ---
+    this.clearSolutionHighlight();
+    // --- END DEBUG_MODE panel ---
 
     const cell = gameplay.boardState[row]?.[col];
     if (!cell) {
@@ -107,6 +141,10 @@ export class GameModel {
       return false;
     }
 
+    // --- DEBUG_MODE panel ---
+    this.clearSolutionHighlight();
+    // --- END DEBUG_MODE panel ---
+
     const cell = gameplay.boardState[row]?.[col];
     if (!cell || cell.placed !== 'nothing') {
       return false;
@@ -120,6 +158,10 @@ export class GameModel {
     if (!gameplay || gameplay.isVictory) {
       return false;
     }
+
+    // --- DEBUG_MODE panel ---
+    this.clearSolutionHighlight();
+    // --- END DEBUG_MODE panel ---
 
     const cell = gameplay.boardState[row]?.[col];
     if (!cell || cell.placed !== 'dot') {

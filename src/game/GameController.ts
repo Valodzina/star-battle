@@ -3,6 +3,12 @@ import { GameModel } from './GameModel';
 import { GameView } from './GameView';
 import type { Difficulty, ScreenId } from '../types/level';
 import type { LevelManager } from '../services/LevelManager';
+// --- DEBUG_MODE panel ---
+import { solve } from '../utils/StarBattleSolver';
+import { generateLevel } from '../utils/StarBattleGenerator';
+
+const DEBUG_MODE = true;
+// --- END DEBUG_MODE panel ---
 
 export class GameController {
   private readonly model = new GameModel();
@@ -15,7 +21,7 @@ export class GameController {
   constructor(app: Application, levelManager: LevelManager) {
     this.app = app;
     this.levelManager = levelManager;
-    this.view = new GameView(app, levelManager);
+    this.view = new GameView(app, levelManager, DEBUG_MODE);
   }
 
   /** Bypass menus and load a level directly (used by DEBUG_SKIP_TO_LEVEL in main.ts). */
@@ -57,6 +63,76 @@ export class GameController {
     });
   }
 
+  // --- DEBUG_MODE panel ---
+  showSolution(): void {
+    if (!DEBUG_MODE) {
+      return;
+    }
+
+    if (this.model.isShowingSolution()) {
+      this.model.clearSolutionHighlight();
+      this.view.clearSolutionOverlay();
+      return;
+    }
+
+    const gameplay = this.model.getGameplay();
+    if (!gameplay) {
+      return;
+    }
+
+    const { size, k, grid } = gameplay.level;
+    const result = solve(size, k, grid);
+
+    if (!result.isSolvable) {
+      console.warn('[GameController] showSolution: level is not solvable');
+      return;
+    }
+
+    const cells: Array<{ row: number; col: number }> = [];
+    for (let row = 0; row < size; row += 1) {
+      for (let col = 0; col < size; col += 1) {
+        if (result.finalState[row]?.[col]?.status === 'Object') {
+          cells.push({ row, col });
+        }
+      }
+    }
+
+    this.model.setSolutionHighlight(cells);
+    this.view.showSolutionOverlay(cells);
+  }
+
+  regenerateBoard(): void {
+    if (!DEBUG_MODE) {
+      return;
+    }
+
+    const gameplay = this.model.getGameplay();
+    if (!gameplay) {
+      return;
+    }
+
+    this.stopTimer();
+    this.model.clearSolutionHighlight();
+    this.view.clearSolutionOverlay();
+
+    const { size, k, difficulty } = gameplay.level;
+
+    let level;
+    try {
+      level = generateLevel(size, k, difficulty);
+    } catch (error: unknown) {
+      console.warn('[GameController] regenerateBoard: generation failed', error);
+      this.startTimer();
+      return;
+    }
+
+    this.model.setDifficulty(difficulty);
+    this.model.loadLevel(level);
+    this.view.render(this.model.getState());
+    this.startTimer();
+  }
+  // --- END DEBUG_MODE panel ---
+
   private wireViewCallbacks(): void {
     this.view.setCallbacks({
       onDifficultySelected: (difficulty: Difficulty) => {
@@ -82,17 +158,32 @@ export class GameController {
       },
       onCellTap: (row: number, col: number) => {
         this.model.cycleCell(row, col);
+        // --- DEBUG_MODE panel ---
+        if (!this.model.isShowingSolution()) {
+          this.view.clearSolutionOverlay();
+        }
+        // --- END DEBUG_MODE panel ---
         this.syncGameplayBoard();
       },
       onDragPaint: (row: number, col: number) => {
         if (this.model.paintDot(row, col)) {
           this.syncGameplayBoard();
         }
+        // --- DEBUG_MODE panel ---
+        if (!this.model.isShowingSolution()) {
+          this.view.clearSolutionOverlay();
+        }
+        // --- END DEBUG_MODE panel ---
       },
       onDragErase: (row: number, col: number) => {
         if (this.model.eraseDot(row, col)) {
           this.syncGameplayBoard();
         }
+        // --- DEBUG_MODE panel ---
+        if (!this.model.isShowingSolution()) {
+          this.view.clearSolutionOverlay();
+        }
+        // --- END DEBUG_MODE panel ---
       },
       onInteractionEnd: () => {
         this.model.finalizeInteraction();
@@ -103,6 +194,14 @@ export class GameController {
         this.model.clearGameplay();
         this.model.setScreen('levelSelect');
       },
+      // --- DEBUG_MODE panel ---
+      onShowSolution: () => {
+        this.showSolution();
+      },
+      onNewBoard: () => {
+        this.regenerateBoard();
+      },
+      // --- END DEBUG_MODE panel ---
     });
   }
 

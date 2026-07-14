@@ -17,6 +17,7 @@ export const COLORS = {
   dotFill: 0xffffff,
   victoryOverlay: 0x000000,
   victoryText: 0xffffff,
+  answerColor: 0x000000,
 } as const;
 
 export const REGION_COLORS: readonly number[] = [
