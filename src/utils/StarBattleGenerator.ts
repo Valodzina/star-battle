@@ -1,6 +1,4 @@
 import type { Difficulty, LevelData } from '../types/level';
-import { DIFFICULTY_ORDER } from '../types/level';
-import { LevelManager } from '../services/LevelManager';
 import { solve } from './StarBattleSolver';
 
 const MOORE_OFFSETS: ReadonlyArray<readonly [number, number]> = [
@@ -609,13 +607,6 @@ function matchesTargetDifficulty(
 
 function collectExistingFingerprints(existingGrids?: number[][][]): Set<string> {
   const fingerprints = new Set<string>();
-  const manager = new LevelManager();
-
-  for (const difficulty of DIFFICULTY_ORDER) {
-    for (const level of manager.getAllLevels(difficulty)) {
-      fingerprints.add(gridFingerprint(level.grid));
-    }
-  }
 
   for (const grid of existingGrids ?? []) {
     fingerprints.add(gridFingerprint(grid));
