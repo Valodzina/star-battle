@@ -4,6 +4,7 @@ import type { CellState, GameplayState } from '../../types/level';
 import { COLORS, getRegionColor } from '../colors';
 import {
   BUTTON_GAP,
+  BOARD_UNDERLAY_PADDING,
   FONT_FAMILY,
   GAMEPLAY_HEADER_HEIGHT,
   GRID_LINE_WIDTH,
@@ -307,6 +308,7 @@ export class GameplayScene extends Container implements IScene {
     size: number,
     cellSize: number,
   ): void {
+    const boardUnderlay = new Graphics();
     const regionFills = new Graphics();
     const gridLines = new Graphics();
     const regionBorders = new Graphics();
@@ -314,6 +316,16 @@ export class GameplayScene extends Container implements IScene {
     this.cellMarkerGraphics = [];
     this.boardState = boardState;
     this.boardSize = size;
+
+    const radius = this.cellCornerRadius(cellSize);
+    const boardWidth = size * cellSize;
+    const boardHeight = size * cellSize;
+    const pad = BOARD_UNDERLAY_PADDING;
+    const underlayRadius = radius ; //+ pad;
+
+    boardUnderlay
+      .roundRect(-pad, -pad, boardWidth + pad * 2, boardHeight + pad * 2, underlayRadius)
+      .fill(COLORS.boardUnderlay);
 
     for (let row = 0; row < size; row += 1) {
       const markerRow: Graphics[] = [];
@@ -326,8 +338,8 @@ export class GameplayScene extends Container implements IScene {
         const x = col * cellSize;
         const y = row * cellSize;
 
-        regionFills.rect(x, y, cellSize, cellSize).fill(getRegionColor(cell.regionId));
-        this.drawRegionBorders(regionBorders, boardState, row, col, size, cellSize, x, y);
+        // Full cell bounds so grid lines sit flush on edges with no gutters.
+        regionFills.roundRect(x, y, cellSize, cellSize, radius).fill(getRegionColor(cell.regionId));
 
         const marker = new Graphics();
         this.drawCellMarker(marker, cell.placed, cellSize);
@@ -340,8 +352,10 @@ export class GameplayScene extends Container implements IScene {
     }
 
     this.drawGridLines(gridLines, size, cellSize);
+    this.drawAllRegionBorders(regionBorders, boardState, size, cellSize);
 
-    container.addChild(regionFills, gridLines, regionBorders, markersLayer);
+    // underlay → fills → continuous grid → region borders → markers
+    container.addChild(boardUnderlay, regionFills, gridLines, regionBorders, markersLayer);
     // --- DEBUG_MODE panel ---
     if (this.debugMode) {
       this.solutionOverlay = new Graphics();
@@ -350,6 +364,10 @@ export class GameplayScene extends Container implements IScene {
     }
     // --- END DEBUG_MODE panel ---
     this.attachBoardPointerHandlers(container, size, cellSize);
+  }
+
+  private cellCornerRadius(cellSize: number): number {
+    return Math.min(12, Math.max(4, cellSize * 0.15));
   }
 
   private attachBoardPointerHandlers(container: Container, size: number, cellSize: number): void {
@@ -475,61 +493,141 @@ export class GameplayScene extends Container implements IScene {
   private drawGridLines(graphics: Graphics, size: number, cellSize: number): void {
     const boardWidth = size * cellSize;
     const boardHeight = size * cellSize;
+    const strokeOpts = {
+      width: GRID_LINE_WIDTH,
+      color: COLORS.gridLine,
+      alpha: 1,
+      cap: 'butt' as const,
+      join: 'miter' as const,
+    };
 
+    // Continuous full-span lines aligned to cell edges (no per-cell segments).
     for (let i = 0; i <= size; i += 1) {
       const pos = i * cellSize;
-      graphics
-        .moveTo(pos, 0)
-        .lineTo(pos, boardHeight)
-        .stroke({ width: GRID_LINE_WIDTH, color: COLORS.gridLine });
-      graphics
-        .moveTo(0, pos)
-        .lineTo(boardWidth, pos)
-        .stroke({ width: GRID_LINE_WIDTH, color: COLORS.gridLine });
+      graphics.moveTo(pos, 0).lineTo(pos, boardHeight).stroke(strokeOpts);
+      graphics.moveTo(0, pos).lineTo(boardWidth, pos).stroke(strokeOpts);
     }
   }
 
-  private drawRegionBorders(
+  private drawAllRegionBorders(
     graphics: Graphics,
     boardState: CellState[][],
-    row: number,
-    col: number,
     size: number,
     cellSize: number,
-    x: number,
-    y: number,
   ): void {
-    const cell = boardState[row]?.[col];
-    if (!cell) {
-      return;
+    const regionIds = new Set<number>();
+    for (const row of boardState) {
+      for (const cell of row) {
+        if (cell) {
+          regionIds.add(cell.regionId);
+        }
+      }
     }
 
-    const strokeOpts = { width: REGION_BORDER_WIDTH, color: COLORS.regionBorder };
+    for (const regionId of regionIds) {
+      this.strokeRegionPerimeter(graphics, boardState, size, cellSize, regionId);
+    }
+  }
 
-    const topNeighbor = row > 0 ? boardState[row - 1]?.[col] : undefined;
-    if (row === 0 || topNeighbor?.regionId !== cell.regionId) {
-      graphics.moveTo(x, y).lineTo(x + cellSize, y).stroke(strokeOpts);
+  private strokeRegionPerimeter(
+    graphics: Graphics,
+    boardState: CellState[][],
+    size: number,
+    cellSize: number,
+    regionId: number,
+  ): void {
+    const isInRegion = (row: number, col: number): boolean =>
+      row >= 0 &&
+      row < size &&
+      col >= 0 &&
+      col < size &&
+      boardState[row]?.[col]?.regionId === regionId;
+
+    type GridPoint = { r: number; c: number };
+    const pointKey = (p: GridPoint): string => `${p.r},${p.c}`;
+    const edgeKey = (from: GridPoint, to: GridPoint): string =>
+      `${pointKey(from)}->${pointKey(to)}`;
+
+    const outgoing = new Map<string, GridPoint[]>();
+    const unusedEdges = new Set<string>();
+
+    const addEdge = (from: GridPoint, to: GridPoint): void => {
+      const key = edgeKey(from, to);
+      unusedEdges.add(key);
+      const fromKey = pointKey(from);
+      const targets = outgoing.get(fromKey) ?? [];
+      targets.push(to);
+      outgoing.set(fromKey, targets);
+    };
+
+    for (let row = 0; row < size; row += 1) {
+      for (let col = 0; col < size; col += 1) {
+        if (!isInRegion(row, col)) {
+          continue;
+        }
+
+        // Clockwise boundary around the region (region on the right while walking).
+        if (!isInRegion(row - 1, col)) {
+          addEdge({ r: row, c: col }, { r: row, c: col + 1 });
+        }
+        if (!isInRegion(row, col + 1)) {
+          addEdge({ r: row, c: col + 1 }, { r: row + 1, c: col + 1 });
+        }
+        if (!isInRegion(row + 1, col)) {
+          addEdge({ r: row + 1, c: col + 1 }, { r: row + 1, c: col });
+        }
+        if (!isInRegion(row, col - 1)) {
+          addEdge({ r: row + 1, c: col }, { r: row, c: col });
+        }
+      }
     }
 
-    const leftNeighbor = col > 0 ? boardState[row]?.[col - 1] : undefined;
-    if (col === 0 || leftNeighbor?.regionId !== cell.regionId) {
-      graphics.moveTo(x, y).lineTo(x, y + cellSize).stroke(strokeOpts);
-    }
+    const strokeOpts = {
+      width: REGION_BORDER_WIDTH,
+      color: COLORS.regionBorder,
+      join: 'round' as const,
+      cap: 'round' as const,
+    };
 
-    const rightNeighbor = col < size - 1 ? boardState[row]?.[col + 1] : undefined;
-    if (col === size - 1 || rightNeighbor?.regionId !== cell.regionId) {
-      graphics
-        .moveTo(x + cellSize, y)
-        .lineTo(x + cellSize, y + cellSize)
-        .stroke(strokeOpts);
-    }
+    while (unusedEdges.size > 0) {
+      const startEdgeKey = unusedEdges.values().next().value;
+      if (!startEdgeKey) {
+        break;
+      }
 
-    const bottomNeighbor = row < size - 1 ? boardState[row + 1]?.[col] : undefined;
-    if (row === size - 1 || bottomNeighbor?.regionId !== cell.regionId) {
-      graphics
-        .moveTo(x, y + cellSize)
-        .lineTo(x + cellSize, y + cellSize)
-        .stroke(strokeOpts);
+      const arrowIndex = startEdgeKey.indexOf('->');
+      const fromStr = startEdgeKey.slice(0, arrowIndex);
+      const toStr = startEdgeKey.slice(arrowIndex + 2);
+      const [startR, startC] = fromStr.split(',').map(Number) as [number, number];
+      const [firstToR, firstToC] = toStr.split(',').map(Number) as [number, number];
+
+      let current: GridPoint = { r: startR, c: startC };
+      let next: GridPoint = { r: firstToR, c: firstToC };
+      const pathStart = current;
+
+      graphics.moveTo(current.c * cellSize, current.r * cellSize);
+
+      do {
+        unusedEdges.delete(edgeKey(current, next));
+        graphics.lineTo(next.c * cellSize, next.r * cellSize);
+        current = next;
+
+        if (current.r === pathStart.r && current.c === pathStart.c) {
+          break;
+        }
+
+        const candidates = outgoing.get(pointKey(current)) ?? [];
+        const unusedNext = candidates.find((target) => unusedEdges.has(edgeKey(current, target)));
+        if (!unusedNext) {
+          break;
+        }
+        next = unusedNext;
+      } while (true);
+
+      if (current.r === pathStart.r && current.c === pathStart.c) {
+        graphics.closePath();
+      }
+      graphics.stroke(strokeOpts);
     }
   }
 
