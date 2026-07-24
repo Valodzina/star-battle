@@ -107,7 +107,7 @@ export class GameModel {
     this.notify();
   }
 
-  loadLevel(level: LevelData): void {
+  loadLevel(level: LevelData, levelIndex: number, levelCount: number): void {
     // --- DEBUG_MODE panel ---
     this.clearSolutionHighlight();
     // --- END DEBUG_MODE panel ---
@@ -125,6 +125,8 @@ export class GameModel {
 
     const gameplay: GameplayState = {
       level,
+      levelIndex,
+      levelCount,
       boardState,
       elapsedSeconds: 0,
       remainingElements: level.size * level.k,
@@ -132,6 +134,26 @@ export class GameModel {
     };
 
     this.state = { ...this.state, gameplay };
+  }
+
+  getCurrentLevelIndex(): number {
+    return this.state.gameplay?.levelIndex ?? -1;
+  }
+
+  hasPreviousLevel(): boolean {
+    const gameplay = this.state.gameplay;
+    if (!gameplay) {
+      return false;
+    }
+    return gameplay.levelIndex > 0;
+  }
+
+  hasNextLevel(): boolean {
+    const gameplay = this.state.gameplay;
+    if (!gameplay) {
+      return false;
+    }
+    return gameplay.levelIndex < gameplay.levelCount - 1;
   }
 
   clearGameplay(): void {

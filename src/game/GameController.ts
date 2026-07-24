@@ -37,8 +37,76 @@ export class GameController {
 
     this.pendingDragChanges = [];
     this.model.setDifficulty(difficulty);
-    this.model.loadLevel(level);
+    this.model.loadLevel(level, index, this.levelManager.getLevelCount(difficulty));
     this.model.setScreen('gameplay');
+  }
+
+  loadNextLevel(): void {
+    if (!this.model.hasNextLevel()) {
+      return;
+    }
+
+    const gameplay = this.model.getGameplay();
+    if (!gameplay) {
+      return;
+    }
+
+    const difficulty =
+      this.model.getState().selectedDifficulty ?? gameplay.level.difficulty;
+    const nextIndex = gameplay.levelIndex + 1;
+    const level = this.levelManager.getLevel(difficulty, nextIndex);
+    if (!level) {
+      return;
+    }
+
+    this.stopTimer();
+    this.pendingDragChanges = [];
+    this.model.clearSolutionHighlight();
+    this.view.clearSolutionOverlay();
+
+    this.model.loadLevel(
+      level,
+      nextIndex,
+      this.levelManager.getLevelCount(difficulty),
+    );
+    this.view.render(this.model.getState());
+    this.view.setUndoEnabled(this.model.canUndo());
+    this.view.setAutoFillEnabled(this.model.isAutoFillOn());
+    this.startTimer();
+  }
+
+  loadPreviousLevel(): void {
+    if (!this.model.hasPreviousLevel()) {
+      return;
+    }
+
+    const gameplay = this.model.getGameplay();
+    if (!gameplay) {
+      return;
+    }
+
+    const difficulty =
+      this.model.getState().selectedDifficulty ?? gameplay.level.difficulty;
+    const previousIndex = gameplay.levelIndex - 1;
+    const level = this.levelManager.getLevel(difficulty, previousIndex);
+    if (!level) {
+      return;
+    }
+
+    this.stopTimer();
+    this.pendingDragChanges = [];
+    this.model.clearSolutionHighlight();
+    this.view.clearSolutionOverlay();
+
+    this.model.loadLevel(
+      level,
+      previousIndex,
+      this.levelManager.getLevelCount(difficulty),
+    );
+    this.view.render(this.model.getState());
+    this.view.setUndoEnabled(this.model.canUndo());
+    this.view.setAutoFillEnabled(this.model.isAutoFillOn());
+    this.startTimer();
   }
 
   start(): void {
@@ -137,7 +205,7 @@ export class GameController {
 
     this.pendingDragChanges = [];
     this.model.setDifficulty(difficulty);
-    this.model.loadLevel(level);
+    this.model.loadLevel(level, gameplay.levelIndex, gameplay.levelCount);
     this.view.render(this.model.getState());
     this.view.setUndoEnabled(this.model.canUndo());
     this.view.setAutoFillEnabled(this.model.isAutoFillOn());
@@ -166,7 +234,7 @@ export class GameController {
         }
 
         this.pendingDragChanges = [];
-        this.model.loadLevel(level);
+        this.model.loadLevel(level, index, this.levelManager.getLevelCount(difficulty));
         this.model.setScreen('gameplay');
         this.view.setUndoEnabled(this.model.canUndo());
         this.view.setAutoFillEnabled(this.model.isAutoFillOn());
@@ -246,6 +314,12 @@ export class GameController {
         this.pendingDragChanges = [];
         this.model.clearGameplay();
         this.model.setScreen('levelSelect');
+      },
+      onPreviousLevel: () => {
+        this.loadPreviousLevel();
+      },
+      onNextLevel: () => {
+        this.loadNextLevel();
       },
       // --- DEBUG_MODE panel ---
       onShowSolution: () => {

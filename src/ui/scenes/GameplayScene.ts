@@ -8,6 +8,9 @@ import {
   FONT_FAMILY,
   GAMEPLAY_HEADER_HEIGHT,
   GRID_LINE_WIDTH,
+  LEVEL_NAV_GAP,
+  LEVEL_NAV_HEIGHT,
+  LEVEL_NAV_SWIPE_THRESHOLD,
   REGION_BORDER_WIDTH,
   SCREEN_PADDING,
 } from '../constants';
@@ -22,6 +25,8 @@ export interface GameplaySceneCallbacks {
   onUndoClick: () => void;
   onAutoFillToggle: () => void;
   onBackToLevels: () => void;
+  onPreviousLevel: () => void;
+  onNextLevel: () => void;
   // --- DEBUG_MODE panel ---
   onShowSolution: () => void;
   onNewBoard: () => void;
@@ -245,7 +250,13 @@ export class GameplayScene extends Container implements IScene {
       boardBottomReserve = debugButtonHeight + debugButtonGap;
     }
     // --- END DEBUG_MODE panel ---
-    const boardAreaHeight = height - boardAreaTop - SCREEN_PADDING - boardBottomReserve;
+    const boardAreaHeight =
+      height -
+      boardAreaTop -
+      SCREEN_PADDING -
+      boardBottomReserve -
+      LEVEL_NAV_HEIGHT -
+      LEVEL_NAV_GAP;
 
     this.currentCellSize = Math.floor(
       Math.min(boardAreaWidth / size, boardAreaHeight / size),
@@ -255,7 +266,17 @@ export class GameplayScene extends Container implements IScene {
     const boardHeight = this.currentCellSize * size;
     const boardContainer = new Container();
     boardContainer.x = (width - boardWidth) / 2;
-    boardContainer.y = boardAreaTop + (boardAreaHeight - boardHeight) / 2;
+    boardContainer.y =
+      boardAreaTop +
+      LEVEL_NAV_HEIGHT +
+      LEVEL_NAV_GAP +
+      (boardAreaHeight - boardHeight) / 2;
+
+    this.buildLevelNavigation(
+      boardContainer.x,
+      boardContainer.y - LEVEL_NAV_HEIGHT - LEVEL_NAV_GAP,
+      boardWidth,
+    );
 
     this.buildBoard(boardContainer, boardState, size, this.currentCellSize);
     this.addChild(boardContainer);
@@ -300,6 +321,107 @@ export class GameplayScene extends Container implements IScene {
     if (isVictory) {
       this.showVictoryOverlay();
     }
+  }
+
+  private buildLevelNavigation(x: number, y: number, width: number): void {
+    const { levelIndex, levelCount } = this.gameplay;
+    const hasPrevious = levelIndex > 0;
+    const hasNext = levelIndex < levelCount - 1;
+
+    const navigationContainer = new Container();
+    navigationContainer.x = x;
+    navigationContainer.y = y;
+
+    const swipeZone = new Graphics();
+    swipeZone.rect(0, 0, width, LEVEL_NAV_HEIGHT).fill({ color: 0xffffff, alpha: 0.3 });
+    swipeZone.eventMode = 'static';
+    swipeZone.cursor = 'pointer';
+    swipeZone.hitArea = new Rectangle(0, 0, width, LEVEL_NAV_HEIGHT);
+    navigationContainer.addChild(swipeZone);
+
+    let swipeStartX: number | null = null;
+
+    swipeZone.on('pointerdown', (event: FederatedPointerEvent) => {
+      swipeStartX = event.global.x;
+    });
+
+    const handleSwipeEnd = (event: FederatedPointerEvent) => {
+      if (swipeStartX === null) {
+        return;
+      }
+
+      const deltaX = event.global.x - swipeStartX;
+      swipeStartX = null;
+
+      if (deltaX > LEVEL_NAV_SWIPE_THRESHOLD && hasPrevious) {
+        this.callbacks.onPreviousLevel();
+      } else if (deltaX < -LEVEL_NAV_SWIPE_THRESHOLD && hasNext) {
+        this.callbacks.onNextLevel();
+      }
+    };
+
+    swipeZone.on('pointerup', handleSwipeEnd);
+    swipeZone.on('pointerupoutside', handleSwipeEnd);
+
+    const levelText = new Text({
+      text: `Level ${levelIndex + 1}`,
+      style: {
+        fill: COLORS.title,
+        fontFamily: FONT_FAMILY,
+        fontSize: 22,
+        fontWeight: '700',
+      },
+    });
+    levelText.anchor.set(0.5);
+    levelText.x = width / 2;
+    levelText.y = LEVEL_NAV_HEIGHT / 2;
+    levelText.eventMode = 'none';
+    navigationContainer.addChild(levelText);
+
+    const arrowStyle = {
+      fill: COLORS.title,
+      fontFamily: FONT_FAMILY,
+      fontSize: 28,
+      fontWeight: '700' as const,
+    };
+
+    const leftArrow = new Text({ text: '<', style: arrowStyle });
+    leftArrow.anchor.set(0.5);
+    leftArrow.x = 28;
+    leftArrow.y = LEVEL_NAV_HEIGHT / 2;
+    if (hasPrevious) {
+      leftArrow.alpha = 1;
+      leftArrow.eventMode = 'static';
+      leftArrow.cursor = 'pointer';
+      leftArrow.on('pointertap', (event: FederatedPointerEvent) => {
+        event.stopPropagation();
+        this.callbacks.onPreviousLevel();
+      });
+    } else {
+      leftArrow.alpha = 0.3;
+      leftArrow.eventMode = 'none';
+    }
+    navigationContainer.addChild(leftArrow);
+
+    const rightArrow = new Text({ text: '>', style: arrowStyle });
+    rightArrow.anchor.set(0.5);
+    rightArrow.x = width - 28;
+    rightArrow.y = LEVEL_NAV_HEIGHT / 2;
+    if (hasNext) {
+      rightArrow.alpha = 1;
+      rightArrow.eventMode = 'static';
+      rightArrow.cursor = 'pointer';
+      rightArrow.on('pointertap', (event: FederatedPointerEvent) => {
+        event.stopPropagation();
+        this.callbacks.onNextLevel();
+      });
+    } else {
+      rightArrow.alpha = 0.3;
+      rightArrow.eventMode = 'none';
+    }
+    navigationContainer.addChild(rightArrow);
+
+    this.addChild(navigationContainer);
   }
 
   private buildBoard(

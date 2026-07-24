@@ -14,6 +14,8 @@ export interface CellState {
 
 export interface GameplayState {
   level: LevelData;
+  levelIndex: number;
+  levelCount: number;
   boardState: CellState[][];
   elapsedSeconds: number;
   remainingElements: number;
