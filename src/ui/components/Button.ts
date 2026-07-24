@@ -15,25 +15,27 @@ export interface ButtonOptions {
 
 export class Button extends Container {
   private hoverTween: gsap.core.Tween | undefined;
+  private readonly background: Graphics;
+  private readonly labelText: Text;
+  private readonly buttonWidth: number;
+  private readonly buttonHeight: number;
+  private readonly hoverState = { blend: 0 };
+  private baseColor: number;
+  private hoverColor: number;
 
   constructor(options: ButtonOptions) {
     super();
 
     const { width, height, label, subtitle, color, onClick } = options;
-    const background = new Graphics();
+    this.buttonWidth = width;
+    this.buttonHeight = height;
+    this.baseColor = color;
+    this.hoverColor = lightenColor(color, 0.12);
 
-    const drawBackground = (fillColor: number): void => {
-      if (background.destroyed) {
-        return;
-      }
+    this.background = new Graphics();
+    this.drawBackground(color);
 
-      background.clear();
-      background.roundRect(0, 0, width, height, 12).fill(fillColor);
-    };
-
-    drawBackground(color);
-
-    const labelText = new Text({
+    this.labelText = new Text({
       text: label,
       style: {
         fill: COLORS.text,
@@ -42,10 +44,10 @@ export class Button extends Container {
         fontWeight: '700',
       },
     });
-    labelText.x = 16;
+    this.labelText.x = 16;
 
     if (subtitle) {
-      labelText.y = 14;
+      this.labelText.y = 14;
       const subtitleText = new Text({
         text: subtitle,
         style: {
@@ -56,47 +58,67 @@ export class Button extends Container {
       });
       subtitleText.x = 16;
       subtitleText.y = 40;
-      this.addChild(background, labelText, subtitleText);
+      this.addChild(this.background, this.labelText, subtitleText);
     } else {
-      labelText.anchor.set(0, 0.5);
-      labelText.y = height / 2;
-      this.addChild(background, labelText);
+      this.labelText.anchor.set(0, 0.5);
+      this.labelText.y = height / 2;
+      this.addChild(this.background, this.labelText);
     }
 
     this.eventMode = 'static';
     this.cursor = 'pointer';
     this.hitArea = new Rectangle(0, 0, width, height);
 
-    const hoverColor = lightenColor(color, 0.12);
-    const hoverState = { blend: 0 };
-
-    const animateHover = (targetBlend: number): void => {
-      this.hoverTween?.kill();
-      this.hoverTween = gsap.to(hoverState, {
-        blend: targetBlend,
-        duration: 0.15,
-        onUpdate: () => {
-          if (background.destroyed) {
-            this.hoverTween?.kill();
-            return;
-          }
-
-          drawBackground(blendColor(color, hoverColor, hoverState.blend));
-        },
-      });
-    };
-
-    this.on('pointerover', () => animateHover(1));
-    this.on('pointerout', () => animateHover(0));
+    this.on('pointerover', () => this.animateHover(1));
+    this.on('pointerout', () => this.animateHover(0));
     this.on('destroy', () => {
       this.hoverTween?.kill();
     });
     this.on('pointertap', onClick);
   }
 
+  setLabel(label: string): void {
+    if (this.labelText.destroyed) {
+      return;
+    }
+
+    this.labelText.text = label;
+  }
+
+  setColor(color: number): void {
+    this.baseColor = color;
+    this.hoverColor = lightenColor(color, 0.12);
+    this.drawBackground(blendColor(this.baseColor, this.hoverColor, this.hoverState.blend));
+  }
+
   setEnabled(enabled: boolean): void {
     this.eventMode = enabled ? 'static' : 'none';
     this.cursor = enabled ? 'pointer' : 'default';
     this.alpha = enabled ? 1 : 0.4;
+  }
+
+  private drawBackground(fillColor: number): void {
+    if (this.background.destroyed) {
+      return;
+    }
+
+    this.background.clear();
+    this.background.roundRect(0, 0, this.buttonWidth, this.buttonHeight, 12).fill(fillColor);
+  }
+
+  private animateHover(targetBlend: number): void {
+    this.hoverTween?.kill();
+    this.hoverTween = gsap.to(this.hoverState, {
+      blend: targetBlend,
+      duration: 0.15,
+      onUpdate: () => {
+        if (this.background.destroyed) {
+          this.hoverTween?.kill();
+          return;
+        }
+
+        this.drawBackground(blendColor(this.baseColor, this.hoverColor, this.hoverState.blend));
+      },
+    });
   }
 }

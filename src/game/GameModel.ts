@@ -23,6 +23,17 @@ export interface MoveRecord {
   changes: CellChange[];
 }
 
+const MOORE_OFFSETS: ReadonlyArray<readonly [number, number]> = [
+  [-1, -1],
+  [-1, 0],
+  [-1, 1],
+  [0, -1],
+  [0, 1],
+  [1, -1],
+  [1, 0],
+  [1, 1],
+];
+
 export class GameModel {
   private state: GameState = {
     screen: 'mainMenu',
@@ -32,6 +43,7 @@ export class GameModel {
 
   private readonly listeners = new Set<GameStateListener>();
   private moveHistory: MoveRecord[] = [];
+  private isAutoFillEnabled = true;
 
   // --- DEBUG_MODE panel ---
   private solutionHighlight: Array<{ row: number; col: number }> | null = null;
@@ -47,6 +59,15 @@ export class GameModel {
 
   getGameplay(): GameplayState | null {
     return this.state.gameplay;
+  }
+
+  isAutoFillOn(): boolean {
+    return this.isAutoFillEnabled;
+  }
+
+  toggleAutoFill(): boolean {
+    this.isAutoFillEnabled = !this.isAutoFillEnabled;
+    return this.isAutoFillEnabled;
   }
 
   // --- DEBUG_MODE panel ---
@@ -166,7 +187,7 @@ export class GameModel {
     return this.moveHistory.length > 0;
   }
 
-  cycleCell(row: number, col: number): CellChange | null {
+  cycleCell(row: number, col: number): CellChange[] | null {
     const gameplay = this.state.gameplay;
     if (!gameplay || gameplay.isVictory) {
       return null;
@@ -189,8 +210,14 @@ export class GameModel {
       return null;
     }
 
+    const changes: CellChange[] = [{ row, col, previousState, newState: nextPlacement }];
+
+    if (nextPlacement === 'element' && this.isAutoFillEnabled) {
+      changes.push(...this.collectAutoFillDots(row, col));
+    }
+
     this.updateGameplayFromBoard();
-    return { row, col, previousState, newState: nextPlacement };
+    return changes;
   }
 
   paintDot(row: number, col: number): CellChange | null {
@@ -267,6 +294,96 @@ export class GameModel {
     for (const listener of this.listeners) {
       listener(this.state);
     }
+  }
+
+  private collectAutoFillDots(elementRow: number, elementCol: number): CellChange[] {
+    const gameplay = this.state.gameplay;
+    if (!gameplay) {
+      return [];
+    }
+
+    const { boardState, level } = gameplay;
+    const { size, k } = level;
+    const elementCell = boardState[elementRow]?.[elementCol];
+    if (!elementCell) {
+      return [];
+    }
+
+    const candidates = new Set<string>();
+    const addCandidate = (row: number, col: number): void => {
+      if (row < 0 || row >= size || col < 0 || col >= size) {
+        return;
+      }
+      if (boardState[row]?.[col]?.placed !== 'nothing') {
+        return;
+      }
+      candidates.add(`${row},${col}`);
+    };
+
+    for (const [dr, dc] of MOORE_OFFSETS) {
+      addCandidate(elementRow + dr, elementCol + dc);
+    }
+
+    let rowElementCount = 0;
+    for (let col = 0; col < size; col += 1) {
+      if (boardState[elementRow]?.[col]?.placed === 'element') {
+        rowElementCount += 1;
+      }
+    }
+    if (rowElementCount === k) {
+      for (let col = 0; col < size; col += 1) {
+        addCandidate(elementRow, col);
+      }
+    }
+
+    let colElementCount = 0;
+    for (let row = 0; row < size; row += 1) {
+      if (boardState[row]?.[elementCol]?.placed === 'element') {
+        colElementCount += 1;
+      }
+    }
+    if (colElementCount === k) {
+      for (let row = 0; row < size; row += 1) {
+        addCandidate(row, elementCol);
+      }
+    }
+
+    const regionId = elementCell.regionId;
+    let regionElementCount = 0;
+    for (const row of boardState) {
+      for (const cell of row) {
+        if (cell.regionId === regionId && cell.placed === 'element') {
+          regionElementCount += 1;
+        }
+      }
+    }
+    if (regionElementCount === k) {
+      for (const row of boardState) {
+        for (const cell of row) {
+          if (cell.regionId === regionId) {
+            addCandidate(cell.row, cell.col);
+          }
+        }
+      }
+    }
+
+    const changes: CellChange[] = [];
+    for (const key of candidates) {
+      const [rowText, colText] = key.split(',');
+      const row = Number(rowText);
+      const col = Number(colText);
+      if (!Number.isFinite(row) || !Number.isFinite(col)) {
+        continue;
+      }
+
+      if (!this.setCellPlacement(row, col, 'dot')) {
+        continue;
+      }
+
+      changes.push({ row, col, previousState: 'nothing', newState: 'dot' });
+    }
+
+    return changes;
   }
 
   private setCellPlacement(row: number, col: number, placement: CellPlacement): boolean {

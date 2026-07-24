@@ -19,6 +19,7 @@ export interface GameplaySceneCallbacks {
   onDragErase: (row: number, col: number) => void;
   onInteractionEnd: () => void;
   onUndoClick: () => void;
+  onAutoFillToggle: () => void;
   onBackToLevels: () => void;
   // --- DEBUG_MODE panel ---
   onShowSolution: () => void;
@@ -43,6 +44,8 @@ export class GameplayScene extends Container implements IScene {
   private timerText: Text | null = null;
   private remainingText: Text | null = null;
   private undoButton: Button | null = null;
+  private autoFillButton: Button | null = null;
+  private isAutoFillEnabled: boolean;
   private cellMarkerGraphics: Graphics[][] = [];
   private victoryOverlay: Container | null = null;
   // --- DEBUG_MODE panel ---
@@ -60,11 +63,13 @@ export class GameplayScene extends Container implements IScene {
   constructor(
     gameplay: GameplayState,
     callbacks: GameplaySceneCallbacks,
+    isAutoFillEnabled = true,
     debugMode = false,
   ) {
     super();
     this.gameplay = gameplay;
     this.callbacks = callbacks;
+    this.isAutoFillEnabled = isAutoFillEnabled;
     this.debugMode = debugMode;
     this.visible = false;
   }
@@ -95,6 +100,11 @@ export class GameplayScene extends Container implements IScene {
 
   setUndoEnabled(enabled: boolean): void {
     this.undoButton?.setEnabled(enabled);
+  }
+
+  setAutoFillEnabled(enabled: boolean): void {
+    this.isAutoFillEnabled = enabled;
+    this.applyAutoFillButtonAppearance();
   }
 
   updateGameplayBoard(
@@ -183,6 +193,18 @@ export class GameplayScene extends Container implements IScene {
     this.undoButton.y = SCREEN_PADDING;
     this.undoButton.setEnabled(false);
     this.addChild(this.undoButton);
+
+    const autoFillButtonWidth = 150;
+    this.autoFillButton = new Button({
+      width: autoFillButtonWidth,
+      height: 40,
+      label: this.isAutoFillEnabled ? 'Auto-Fill: ON' : 'Auto-Fill: OFF',
+      color: this.isAutoFillEnabled ? COLORS.buttonEasy : COLORS.buttonBack,
+      onClick: () => this.callbacks.onAutoFillToggle(),
+    });
+    this.autoFillButton.x = this.undoButton.x + undoButtonWidth + BUTTON_GAP;
+    this.autoFillButton.y = SCREEN_PADDING;
+    this.addChild(this.autoFillButton);
 
     this.timerText = new Text({
       text: formatTime(elapsedSeconds),
@@ -600,11 +622,21 @@ export class GameplayScene extends Container implements IScene {
     this.victoryOverlay.alpha = 0;
   }
 
+  private applyAutoFillButtonAppearance(): void {
+    if (!this.autoFillButton || this.autoFillButton.destroyed) {
+      return;
+    }
+
+    this.autoFillButton.setLabel(this.isAutoFillEnabled ? 'Auto-Fill: ON' : 'Auto-Fill: OFF');
+    this.autoFillButton.setColor(this.isAutoFillEnabled ? COLORS.buttonEasy : COLORS.buttonBack);
+  }
+
   private clearRefs(): void {
     this.resetDragSession();
     this.timerText = null;
     this.remainingText = null;
     this.undoButton = null;
+    this.autoFillButton = null;
     this.cellMarkerGraphics = [];
     this.victoryOverlay = null;
     // --- DEBUG_MODE panel ---

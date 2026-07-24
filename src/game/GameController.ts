@@ -51,6 +51,7 @@ export class GameController {
 
         if (state.screen === 'gameplay') {
           this.view.setUndoEnabled(this.model.canUndo());
+          this.view.setAutoFillEnabled(this.model.isAutoFillOn());
           this.startTimer();
         } else {
           this.stopTimer();
@@ -65,6 +66,7 @@ export class GameController {
       this.view.render(this.model.getState());
       if (this.model.getState().screen === 'gameplay') {
         this.view.setUndoEnabled(this.model.canUndo());
+        this.view.setAutoFillEnabled(this.model.isAutoFillOn());
       }
     });
   }
@@ -138,6 +140,7 @@ export class GameController {
     this.model.loadLevel(level);
     this.view.render(this.model.getState());
     this.view.setUndoEnabled(this.model.canUndo());
+    this.view.setAutoFillEnabled(this.model.isAutoFillOn());
     this.startTimer();
   }
   // --- END DEBUG_MODE panel ---
@@ -166,11 +169,12 @@ export class GameController {
         this.model.loadLevel(level);
         this.model.setScreen('gameplay');
         this.view.setUndoEnabled(this.model.canUndo());
+        this.view.setAutoFillEnabled(this.model.isAutoFillOn());
       },
       onCellTap: (row: number, col: number) => {
-        const change = this.model.cycleCell(row, col);
-        if (change) {
-          this.model.pushMove({ changes: [change] });
+        const changes = this.model.cycleCell(row, col);
+        if (changes) {
+          this.model.pushMove({ changes });
         }
         // --- DEBUG_MODE panel ---
         if (!this.model.isShowingSolution()) {
@@ -231,6 +235,10 @@ export class GameController {
         if (gameplay && !gameplay.isVictory) {
           this.startTimer();
         }
+      },
+      onAutoFillToggle: () => {
+        const enabled = this.model.toggleAutoFill();
+        this.view.setAutoFillEnabled(enabled);
       },
       onBackToLevels: () => {
         this.stopTimer();

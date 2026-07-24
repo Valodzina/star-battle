@@ -15,6 +15,7 @@ export interface GameViewCallbacks {
   onDragErase: (row: number, col: number) => void;
   onInteractionEnd: () => void;
   onUndoClick: () => void;
+  onAutoFillToggle: () => void;
   onBackToLevels: () => void;
   // --- DEBUG_MODE panel ---
   onShowSolution: () => void;
@@ -29,6 +30,7 @@ export class GameView {
   // --- DEBUG_MODE panel ---
   private readonly debugMode: boolean;
   // --- END DEBUG_MODE panel ---
+  private autoFillEnabled = true;
   private callbacks: GameViewCallbacks = {
     onDifficultySelected: () => undefined,
     onBackSelected: () => undefined,
@@ -38,6 +40,7 @@ export class GameView {
     onDragErase: () => undefined,
     onInteractionEnd: () => undefined,
     onUndoClick: () => undefined,
+    onAutoFillToggle: () => undefined,
     onBackToLevels: () => undefined,
     // --- DEBUG_MODE panel ---
     onShowSolution: () => undefined,
@@ -90,12 +93,14 @@ export class GameView {
           onDragErase: (row, col) => this.callbacks.onDragErase(row, col),
           onInteractionEnd: () => this.callbacks.onInteractionEnd(),
           onUndoClick: () => this.callbacks.onUndoClick(),
+          onAutoFillToggle: () => this.callbacks.onAutoFillToggle(),
           onBackToLevels: () => this.callbacks.onBackToLevels(),
           // --- DEBUG_MODE panel ---
           onShowSolution: () => this.callbacks.onShowSolution(),
           onNewBoard: () => this.callbacks.onNewBoard(),
           // --- END DEBUG_MODE panel ---
         },
+        this.autoFillEnabled,
         this.debugMode,
       );
       this.gameplayScene = scene;
@@ -109,6 +114,11 @@ export class GameView {
 
   setUndoEnabled(enabled: boolean): void {
     this.gameplayScene?.setUndoEnabled(enabled);
+  }
+
+  setAutoFillEnabled(enabled: boolean): void {
+    this.autoFillEnabled = enabled;
+    this.gameplayScene?.setAutoFillEnabled(enabled);
   }
 
   updateGameplayBoard(
