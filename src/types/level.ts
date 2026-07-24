@@ -3,7 +3,7 @@ import { COLORS } from '../ui/colors';
 export type Difficulty = 'easy' | 'medium' | 'hard';
 export type ScreenId = 'mainMenu' | 'levelSelect' | 'gameplay';
 
-export type CellPlacement = 'nothing' | 'dot' | 'element';
+export type CellPlacement = 'nothing' | 'dot' | 'auto-dot' | 'element';
 
 export interface CellState {
   row: number;

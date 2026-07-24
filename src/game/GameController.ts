@@ -172,9 +172,9 @@ export class GameController {
         this.view.setAutoFillEnabled(this.model.isAutoFillOn());
       },
       onCellTap: (row: number, col: number) => {
-        const changes = this.model.cycleCell(row, col);
-        if (changes) {
-          this.model.pushMove({ changes });
+        const change = this.model.cycleCell(row, col);
+        if (change) {
+          this.model.pushMove({ changes: [change] });
         }
         // --- DEBUG_MODE panel ---
         if (!this.model.isShowingSolution()) {
@@ -239,6 +239,7 @@ export class GameController {
       onAutoFillToggle: () => {
         const enabled = this.model.toggleAutoFill();
         this.view.setAutoFillEnabled(enabled);
+        this.syncGameplayBoard();
       },
       onBackToLevels: () => {
         this.stopTimer();

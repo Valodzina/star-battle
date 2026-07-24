@@ -431,7 +431,7 @@ export class GameplayScene extends Container implements IScene {
   }
 
   private resolveDragMode(placement: CellState['placed'] | null): 'painting' | 'erasing' | null {
-    if (placement === 'nothing') {
+    if (placement === 'nothing' || placement === 'auto-dot') {
       return 'painting';
     }
 
@@ -543,7 +543,7 @@ export class GameplayScene extends Container implements IScene {
     const centerX = cellSize / 2;
     const centerY = cellSize / 2;
 
-    if (placed === 'dot') {
+    if (placed === 'dot' || placed === 'auto-dot') {
       const radius = cellSize * 0.075;
       graphics.circle(centerX, centerY, radius).fill(COLORS.dotFill);
       return;

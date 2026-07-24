@@ -67,6 +67,7 @@ export class GameModel {
 
   toggleAutoFill(): boolean {
     this.isAutoFillEnabled = !this.isAutoFillEnabled;
+    this.applyAutoFillRules();
     return this.isAutoFillEnabled;
   }
 
@@ -179,7 +180,7 @@ export class GameModel {
       this.setCellPlacement(change.row, change.col, change.previousState);
     }
 
-    this.updateGameplayFromBoard();
+    this.applyAutoFillRules();
     return record;
   }
 
@@ -187,7 +188,7 @@ export class GameModel {
     return this.moveHistory.length > 0;
   }
 
-  cycleCell(row: number, col: number): CellChange[] | null {
+  cycleCell(row: number, col: number): CellChange | null {
     const gameplay = this.state.gameplay;
     if (!gameplay || gameplay.isVictory) {
       return null;
@@ -202,22 +203,21 @@ export class GameModel {
       return null;
     }
 
-    const previousState = cell.placed;
+    // Auto-dots are derived; treat them as empty for cycling and history.
+    const previousState: CellPlacement = cell.placed === 'auto-dot' ? 'nothing' : cell.placed;
     const currentIndex = PLACEMENT_CYCLE.indexOf(previousState);
+    if (currentIndex < 0) {
+      return null;
+    }
+
     const nextPlacement = PLACEMENT_CYCLE[(currentIndex + 1) % PLACEMENT_CYCLE.length] ?? 'nothing';
 
     if (!this.setCellPlacement(row, col, nextPlacement)) {
       return null;
     }
 
-    const changes: CellChange[] = [{ row, col, previousState, newState: nextPlacement }];
-
-    if (nextPlacement === 'element' && this.isAutoFillEnabled) {
-      changes.push(...this.collectAutoFillDots(row, col));
-    }
-
-    this.updateGameplayFromBoard();
-    return changes;
+    this.applyAutoFillRules();
+    return { row, col, previousState, newState: nextPlacement };
   }
 
   paintDot(row: number, col: number): CellChange | null {
@@ -231,7 +231,7 @@ export class GameModel {
     // --- END DEBUG_MODE panel ---
 
     const cell = gameplay.boardState[row]?.[col];
-    if (!cell || cell.placed !== 'nothing') {
+    if (!cell || (cell.placed !== 'nothing' && cell.placed !== 'auto-dot')) {
       return null;
     }
 
@@ -239,6 +239,7 @@ export class GameModel {
       return null;
     }
 
+    this.applyAutoFillRules();
     return { row, col, previousState: 'nothing', newState: 'dot' };
   }
 
@@ -261,10 +262,132 @@ export class GameModel {
       return null;
     }
 
+    this.applyAutoFillRules();
     return { row, col, previousState: 'dot', newState: 'nothing' };
   }
 
   finalizeInteraction(): void {
+    this.applyAutoFillRules();
+  }
+
+  applyAutoFillRules(): void {
+    const gameplay = this.state.gameplay;
+    if (!gameplay) {
+      return;
+    }
+
+    const { size, k } = gameplay.level;
+    const clearedBoard = gameplay.boardState.map((row) =>
+      row.map((cell) =>
+        cell.placed === 'auto-dot' ? { ...cell, placed: 'nothing' as const } : cell,
+      ),
+    );
+
+    if (!this.isAutoFillEnabled) {
+      this.state = {
+        ...this.state,
+        gameplay: {
+          ...gameplay,
+          boardState: clearedBoard,
+        },
+      };
+      this.updateGameplayFromBoard();
+      return;
+    }
+
+    const candidates = new Set<string>();
+    const addCandidate = (row: number, col: number): void => {
+      if (row < 0 || row >= size || col < 0 || col >= size) {
+        return;
+      }
+      if (clearedBoard[row]?.[col]?.placed !== 'nothing') {
+        return;
+      }
+      candidates.add(`${row},${col}`);
+    };
+
+    const countElementsInRow = (row: number): number => {
+      let count = 0;
+      for (let col = 0; col < size; col += 1) {
+        if (clearedBoard[row]?.[col]?.placed === 'element') {
+          count += 1;
+        }
+      }
+      return count;
+    };
+
+    const countElementsInCol = (col: number): number => {
+      let count = 0;
+      for (let row = 0; row < size; row += 1) {
+        if (clearedBoard[row]?.[col]?.placed === 'element') {
+          count += 1;
+        }
+      }
+      return count;
+    };
+
+    const regionElementCounts = new Map<number, number>();
+    for (const row of clearedBoard) {
+      for (const cell of row) {
+        if (cell.placed === 'element') {
+          regionElementCounts.set(
+            cell.regionId,
+            (regionElementCounts.get(cell.regionId) ?? 0) + 1,
+          );
+        }
+      }
+    }
+
+    for (let row = 0; row < size; row += 1) {
+      for (let col = 0; col < size; col += 1) {
+        const cell = clearedBoard[row]?.[col];
+        if (!cell || cell.placed !== 'element') {
+          continue;
+        }
+
+        for (const [dr, dc] of MOORE_OFFSETS) {
+          addCandidate(row + dr, col + dc);
+        }
+
+        if (countElementsInRow(row) === k) {
+          for (let c = 0; c < size; c += 1) {
+            addCandidate(row, c);
+          }
+        }
+
+        if (countElementsInCol(col) === k) {
+          for (let r = 0; r < size; r += 1) {
+            addCandidate(r, col);
+          }
+        }
+
+        if ((regionElementCounts.get(cell.regionId) ?? 0) === k) {
+          for (const boardRow of clearedBoard) {
+            for (const regionCell of boardRow) {
+              if (regionCell.regionId === cell.regionId) {
+                addCandidate(regionCell.row, regionCell.col);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    const boardState = clearedBoard.map((boardRow, rowIndex) =>
+      boardRow.map((boardCell, colIndex) =>
+        candidates.has(`${rowIndex},${colIndex}`)
+          ? { ...boardCell, placed: 'auto-dot' as const }
+          : boardCell,
+      ),
+    );
+
+    this.state = {
+      ...this.state,
+      gameplay: {
+        ...gameplay,
+        boardState,
+      },
+    };
     this.updateGameplayFromBoard();
   }
 
@@ -294,96 +417,6 @@ export class GameModel {
     for (const listener of this.listeners) {
       listener(this.state);
     }
-  }
-
-  private collectAutoFillDots(elementRow: number, elementCol: number): CellChange[] {
-    const gameplay = this.state.gameplay;
-    if (!gameplay) {
-      return [];
-    }
-
-    const { boardState, level } = gameplay;
-    const { size, k } = level;
-    const elementCell = boardState[elementRow]?.[elementCol];
-    if (!elementCell) {
-      return [];
-    }
-
-    const candidates = new Set<string>();
-    const addCandidate = (row: number, col: number): void => {
-      if (row < 0 || row >= size || col < 0 || col >= size) {
-        return;
-      }
-      if (boardState[row]?.[col]?.placed !== 'nothing') {
-        return;
-      }
-      candidates.add(`${row},${col}`);
-    };
-
-    for (const [dr, dc] of MOORE_OFFSETS) {
-      addCandidate(elementRow + dr, elementCol + dc);
-    }
-
-    let rowElementCount = 0;
-    for (let col = 0; col < size; col += 1) {
-      if (boardState[elementRow]?.[col]?.placed === 'element') {
-        rowElementCount += 1;
-      }
-    }
-    if (rowElementCount === k) {
-      for (let col = 0; col < size; col += 1) {
-        addCandidate(elementRow, col);
-      }
-    }
-
-    let colElementCount = 0;
-    for (let row = 0; row < size; row += 1) {
-      if (boardState[row]?.[elementCol]?.placed === 'element') {
-        colElementCount += 1;
-      }
-    }
-    if (colElementCount === k) {
-      for (let row = 0; row < size; row += 1) {
-        addCandidate(row, elementCol);
-      }
-    }
-
-    const regionId = elementCell.regionId;
-    let regionElementCount = 0;
-    for (const row of boardState) {
-      for (const cell of row) {
-        if (cell.regionId === regionId && cell.placed === 'element') {
-          regionElementCount += 1;
-        }
-      }
-    }
-    if (regionElementCount === k) {
-      for (const row of boardState) {
-        for (const cell of row) {
-          if (cell.regionId === regionId) {
-            addCandidate(cell.row, cell.col);
-          }
-        }
-      }
-    }
-
-    const changes: CellChange[] = [];
-    for (const key of candidates) {
-      const [rowText, colText] = key.split(',');
-      const row = Number(rowText);
-      const col = Number(colText);
-      if (!Number.isFinite(row) || !Number.isFinite(col)) {
-        continue;
-      }
-
-      if (!this.setCellPlacement(row, col, 'dot')) {
-        continue;
-      }
-
-      changes.push({ row, col, previousState: 'nothing', newState: 'dot' });
-    }
-
-    return changes;
   }
 
   private setCellPlacement(row: number, col: number, placement: CellPlacement): boolean {
