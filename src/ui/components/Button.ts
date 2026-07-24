@@ -93,4 +93,10 @@ export class Button extends Container {
     });
     this.on('pointertap', onClick);
   }
+
+  setEnabled(enabled: boolean): void {
+    this.eventMode = enabled ? 'static' : 'none';
+    this.cursor = enabled ? 'pointer' : 'default';
+    this.alpha = enabled ? 1 : 0.4;
+  }
 }

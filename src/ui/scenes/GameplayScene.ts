@@ -18,6 +18,7 @@ export interface GameplaySceneCallbacks {
   onDragPaint: (row: number, col: number) => void;
   onDragErase: (row: number, col: number) => void;
   onInteractionEnd: () => void;
+  onUndoClick: () => void;
   onBackToLevels: () => void;
   // --- DEBUG_MODE panel ---
   onShowSolution: () => void;
@@ -41,6 +42,7 @@ export class GameplayScene extends Container implements IScene {
 
   private timerText: Text | null = null;
   private remainingText: Text | null = null;
+  private undoButton: Button | null = null;
   private cellMarkerGraphics: Graphics[][] = [];
   private victoryOverlay: Container | null = null;
   // --- DEBUG_MODE panel ---
@@ -91,6 +93,10 @@ export class GameplayScene extends Container implements IScene {
     }
   }
 
+  setUndoEnabled(enabled: boolean): void {
+    this.undoButton?.setEnabled(enabled);
+  }
+
   updateGameplayBoard(
     boardState: CellState[][],
     remainingElements: number,
@@ -114,6 +120,8 @@ export class GameplayScene extends Container implements IScene {
 
     if (isVictory) {
       this.showVictoryOverlay();
+    } else {
+      this.hideVictoryOverlay();
     }
   }
 
@@ -162,6 +170,19 @@ export class GameplayScene extends Container implements IScene {
     backButton.x = SCREEN_PADDING;
     backButton.y = SCREEN_PADDING;
     this.addChild(backButton);
+
+    const undoButtonWidth = 80;
+    this.undoButton = new Button({
+      width: undoButtonWidth,
+      height: 40,
+      label: 'Undo',
+      color: COLORS.buttonBack,
+      onClick: () => this.callbacks.onUndoClick(),
+    });
+    this.undoButton.x = SCREEN_PADDING + 140 + BUTTON_GAP;
+    this.undoButton.y = SCREEN_PADDING;
+    this.undoButton.setEnabled(false);
+    this.addChild(this.undoButton);
 
     this.timerText = new Text({
       text: formatTime(elapsedSeconds),
@@ -570,10 +591,20 @@ export class GameplayScene extends Container implements IScene {
     }
   }
 
+  private hideVictoryOverlay(): void {
+    if (!this.victoryOverlay || !this.victoryOverlay.visible) {
+      return;
+    }
+
+    this.victoryOverlay.visible = false;
+    this.victoryOverlay.alpha = 0;
+  }
+
   private clearRefs(): void {
     this.resetDragSession();
     this.timerText = null;
     this.remainingText = null;
+    this.undoButton = null;
     this.cellMarkerGraphics = [];
     this.victoryOverlay = null;
     // --- DEBUG_MODE panel ---

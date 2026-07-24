@@ -12,6 +12,17 @@ type GameStateListener = (state: GameState) => void;
 
 const PLACEMENT_CYCLE: readonly CellPlacement[] = ['nothing', 'dot', 'element'];
 
+export interface CellChange {
+  row: number;
+  col: number;
+  previousState: CellPlacement;
+  newState: CellPlacement;
+}
+
+export interface MoveRecord {
+  changes: CellChange[];
+}
+
 export class GameModel {
   private state: GameState = {
     screen: 'mainMenu',
@@ -20,6 +31,7 @@ export class GameModel {
   };
 
   private readonly listeners = new Set<GameStateListener>();
+  private moveHistory: MoveRecord[] = [];
 
   // --- DEBUG_MODE panel ---
   private solutionHighlight: Array<{ row: number; col: number }> | null = null;
@@ -78,6 +90,8 @@ export class GameModel {
     this.clearSolutionHighlight();
     // --- END DEBUG_MODE panel ---
 
+    this.moveHistory = [];
+
     const boardState = level.grid.map((row, rowIndex) =>
       row.map((regionId, colIndex) => ({
         row: rowIndex,
@@ -107,13 +121,55 @@ export class GameModel {
     this.clearSolutionHighlight();
     // --- END DEBUG_MODE panel ---
 
+    this.moveHistory = [];
     this.state = { ...this.state, gameplay: null };
   }
 
-  cycleCell(row: number, col: number): void {
+  pushMove(record: MoveRecord): void {
+    if (record.changes.length === 0) {
+      return;
+    }
+
+    this.moveHistory.push(record);
+  }
+
+  undoLastMove(): MoveRecord | null {
+    const gameplay = this.state.gameplay;
+    if (!gameplay || this.moveHistory.length === 0) {
+      return null;
+    }
+
+    const record = this.moveHistory.pop() ?? null;
+    if (!record) {
+      return null;
+    }
+
+    // --- DEBUG_MODE panel ---
+    this.clearSolutionHighlight();
+    // --- END DEBUG_MODE panel ---
+
+    // Restore in reverse so overlapping cells (if any) end at the earliest previous state.
+    for (let i = record.changes.length - 1; i >= 0; i -= 1) {
+      const change = record.changes[i];
+      if (!change) {
+        continue;
+      }
+
+      this.setCellPlacement(change.row, change.col, change.previousState);
+    }
+
+    this.updateGameplayFromBoard();
+    return record;
+  }
+
+  canUndo(): boolean {
+    return this.moveHistory.length > 0;
+  }
+
+  cycleCell(row: number, col: number): CellChange | null {
     const gameplay = this.state.gameplay;
     if (!gameplay || gameplay.isVictory) {
-      return;
+      return null;
     }
 
     // --- DEBUG_MODE panel ---
@@ -122,23 +178,25 @@ export class GameModel {
 
     const cell = gameplay.boardState[row]?.[col];
     if (!cell) {
-      return;
+      return null;
     }
 
-    const currentIndex = PLACEMENT_CYCLE.indexOf(cell.placed);
+    const previousState = cell.placed;
+    const currentIndex = PLACEMENT_CYCLE.indexOf(previousState);
     const nextPlacement = PLACEMENT_CYCLE[(currentIndex + 1) % PLACEMENT_CYCLE.length] ?? 'nothing';
 
     if (!this.setCellPlacement(row, col, nextPlacement)) {
-      return;
+      return null;
     }
 
     this.updateGameplayFromBoard();
+    return { row, col, previousState, newState: nextPlacement };
   }
 
-  paintDot(row: number, col: number): boolean {
+  paintDot(row: number, col: number): CellChange | null {
     const gameplay = this.state.gameplay;
     if (!gameplay || gameplay.isVictory) {
-      return false;
+      return null;
     }
 
     // --- DEBUG_MODE panel ---
@@ -147,16 +205,20 @@ export class GameModel {
 
     const cell = gameplay.boardState[row]?.[col];
     if (!cell || cell.placed !== 'nothing') {
-      return false;
+      return null;
     }
 
-    return this.setCellPlacement(row, col, 'dot');
+    if (!this.setCellPlacement(row, col, 'dot')) {
+      return null;
+    }
+
+    return { row, col, previousState: 'nothing', newState: 'dot' };
   }
 
-  eraseDot(row: number, col: number): boolean {
+  eraseDot(row: number, col: number): CellChange | null {
     const gameplay = this.state.gameplay;
     if (!gameplay || gameplay.isVictory) {
-      return false;
+      return null;
     }
 
     // --- DEBUG_MODE panel ---
@@ -165,10 +227,14 @@ export class GameModel {
 
     const cell = gameplay.boardState[row]?.[col];
     if (!cell || cell.placed !== 'dot') {
-      return false;
+      return null;
     }
 
-    return this.setCellPlacement(row, col, 'nothing');
+    if (!this.setCellPlacement(row, col, 'nothing')) {
+      return null;
+    }
+
+    return { row, col, previousState: 'dot', newState: 'nothing' };
   }
 
   finalizeInteraction(): void {

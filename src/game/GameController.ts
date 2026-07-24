@@ -1,5 +1,5 @@
 import type { Application } from 'pixi.js';
-import { GameModel } from './GameModel';
+import { GameModel, type CellChange } from './GameModel';
 import { GameView } from './GameView';
 import type { Difficulty, ScreenId } from '../types/level';
 import type { LevelManager } from '../services/LevelManager';
@@ -17,6 +17,7 @@ export class GameController {
   private readonly levelManager: LevelManager;
   private timerIntervalId: ReturnType<typeof setInterval> | null = null;
   private lastScreen: ScreenId | null = null;
+  private pendingDragChanges: CellChange[] = [];
 
   constructor(app: Application, levelManager: LevelManager) {
     this.app = app;
@@ -34,6 +35,7 @@ export class GameController {
       return;
     }
 
+    this.pendingDragChanges = [];
     this.model.setDifficulty(difficulty);
     this.model.loadLevel(level);
     this.model.setScreen('gameplay');
@@ -48,6 +50,7 @@ export class GameController {
         this.lastScreen = state.screen;
 
         if (state.screen === 'gameplay') {
+          this.view.setUndoEnabled(this.model.canUndo());
           this.startTimer();
         } else {
           this.stopTimer();
@@ -60,6 +63,9 @@ export class GameController {
 
     this.app.renderer.on('resize', () => {
       this.view.render(this.model.getState());
+      if (this.model.getState().screen === 'gameplay') {
+        this.view.setUndoEnabled(this.model.canUndo());
+      }
     });
   }
 
@@ -112,6 +118,7 @@ export class GameController {
     }
 
     this.stopTimer();
+    this.pendingDragChanges = [];
     this.model.clearSolutionHighlight();
     this.view.clearSolutionOverlay();
 
@@ -126,9 +133,11 @@ export class GameController {
       return;
     }
 
+    this.pendingDragChanges = [];
     this.model.setDifficulty(difficulty);
     this.model.loadLevel(level);
     this.view.render(this.model.getState());
+    this.view.setUndoEnabled(this.model.canUndo());
     this.startTimer();
   }
   // --- END DEBUG_MODE panel ---
@@ -153,20 +162,28 @@ export class GameController {
           return;
         }
 
+        this.pendingDragChanges = [];
         this.model.loadLevel(level);
         this.model.setScreen('gameplay');
+        this.view.setUndoEnabled(this.model.canUndo());
       },
       onCellTap: (row: number, col: number) => {
-        this.model.cycleCell(row, col);
+        const change = this.model.cycleCell(row, col);
+        if (change) {
+          this.model.pushMove({ changes: [change] });
+        }
         // --- DEBUG_MODE panel ---
         if (!this.model.isShowingSolution()) {
           this.view.clearSolutionOverlay();
         }
         // --- END DEBUG_MODE panel ---
         this.syncGameplayBoard();
+        this.view.setUndoEnabled(this.model.canUndo());
       },
       onDragPaint: (row: number, col: number) => {
-        if (this.model.paintDot(row, col)) {
+        const change = this.model.paintDot(row, col);
+        if (change) {
+          this.pendingDragChanges.push(change);
           this.syncGameplayBoard();
         }
         // --- DEBUG_MODE panel ---
@@ -176,7 +193,9 @@ export class GameController {
         // --- END DEBUG_MODE panel ---
       },
       onDragErase: (row: number, col: number) => {
-        if (this.model.eraseDot(row, col)) {
+        const change = this.model.eraseDot(row, col);
+        if (change) {
+          this.pendingDragChanges.push(change);
           this.syncGameplayBoard();
         }
         // --- DEBUG_MODE panel ---
@@ -186,11 +205,36 @@ export class GameController {
         // --- END DEBUG_MODE panel ---
       },
       onInteractionEnd: () => {
+        if (this.pendingDragChanges.length > 0) {
+          this.model.pushMove({ changes: this.pendingDragChanges });
+          this.pendingDragChanges = [];
+        }
         this.model.finalizeInteraction();
         this.syncGameplayBoard();
+        this.view.setUndoEnabled(this.model.canUndo());
+      },
+      onUndoClick: () => {
+        const record = this.model.undoLastMove();
+        if (!record) {
+          return;
+        }
+
+        // --- DEBUG_MODE panel ---
+        if (!this.model.isShowingSolution()) {
+          this.view.clearSolutionOverlay();
+        }
+        // --- END DEBUG_MODE panel ---
+        this.syncGameplayBoard();
+        this.view.setUndoEnabled(this.model.canUndo());
+
+        const gameplay = this.model.getGameplay();
+        if (gameplay && !gameplay.isVictory) {
+          this.startTimer();
+        }
       },
       onBackToLevels: () => {
         this.stopTimer();
+        this.pendingDragChanges = [];
         this.model.clearGameplay();
         this.model.setScreen('levelSelect');
       },

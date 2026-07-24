@@ -14,6 +14,7 @@ export interface GameViewCallbacks {
   onDragPaint: (row: number, col: number) => void;
   onDragErase: (row: number, col: number) => void;
   onInteractionEnd: () => void;
+  onUndoClick: () => void;
   onBackToLevels: () => void;
   // --- DEBUG_MODE panel ---
   onShowSolution: () => void;
@@ -36,6 +37,7 @@ export class GameView {
     onDragPaint: () => undefined,
     onDragErase: () => undefined,
     onInteractionEnd: () => undefined,
+    onUndoClick: () => undefined,
     onBackToLevels: () => undefined,
     // --- DEBUG_MODE panel ---
     onShowSolution: () => undefined,
@@ -87,6 +89,7 @@ export class GameView {
           onDragPaint: (row, col) => this.callbacks.onDragPaint(row, col),
           onDragErase: (row, col) => this.callbacks.onDragErase(row, col),
           onInteractionEnd: () => this.callbacks.onInteractionEnd(),
+          onUndoClick: () => this.callbacks.onUndoClick(),
           onBackToLevels: () => this.callbacks.onBackToLevels(),
           // --- DEBUG_MODE panel ---
           onShowSolution: () => this.callbacks.onShowSolution(),
@@ -102,6 +105,10 @@ export class GameView {
 
   updateTimerDisplay(seconds: number): void {
     this.gameplayScene?.updateTimerDisplay(seconds);
+  }
+
+  setUndoEnabled(enabled: boolean): void {
+    this.gameplayScene?.setUndoEnabled(enabled);
   }
 
   updateGameplayBoard(
