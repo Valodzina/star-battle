@@ -6,6 +6,6 @@ export const GAMEPLAY_HEADER_HEIGHT = 56;
 export const LEVEL_NAV_HEIGHT = 48;
 export const LEVEL_NAV_GAP = 8;
 export const LEVEL_NAV_SWIPE_THRESHOLD = 50;
+/** Fixed pixel widths — do not scale with cellSize. */
 export const GRID_LINE_WIDTH = 1;
-export const REGION_BORDER_WIDTH = 5;
-export const BOARD_UNDERLAY_PADDING = 6;
+export const REGION_BORDER_WIDTH = 3;

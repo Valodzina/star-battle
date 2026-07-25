@@ -4,7 +4,6 @@ import type { CellState, GameplayState } from '../../types/level';
 import { COLORS, getRegionColor } from '../colors';
 import {
   BUTTON_GAP,
-  BOARD_UNDERLAY_PADDING,
   FONT_FAMILY,
   GAMEPLAY_HEADER_HEIGHT,
   GRID_LINE_WIDTH,
@@ -447,19 +446,19 @@ export class GameplayScene extends Container implements IScene {
     const regionFills = new Graphics();
     const gridLines = new Graphics();
     const regionBorders = new Graphics();
+    const outerPerimeter = new Graphics();
     const markersLayer = new Container();
+    const boardMask = new Graphics();
     this.cellMarkerGraphics = [];
     this.boardState = boardState;
     this.boardSize = size;
 
-    const radius = this.cellCornerRadius(cellSize);
+    const cellRadius = this.cellCornerRadius(cellSize);
     const boardWidth = size * cellSize;
     const boardHeight = size * cellSize;
-    const pad = BOARD_UNDERLAY_PADDING;
-    const underlayRadius = radius ; //+ pad;
 
     boardUnderlay
-      .roundRect(-pad, -pad, boardWidth + pad * 2, boardHeight + pad * 2, underlayRadius)
+      .roundRect(0, 0, boardWidth, boardHeight, cellRadius)
       .fill(COLORS.boardUnderlay);
 
     for (let row = 0; row < size; row += 1) {
@@ -474,7 +473,9 @@ export class GameplayScene extends Container implements IScene {
         const y = row * cellSize;
 
         // Full cell bounds so grid lines sit flush on edges with no gutters.
-        regionFills.roundRect(x, y, cellSize, cellSize, radius).fill(getRegionColor(cell.regionId));
+        regionFills
+          .roundRect(x, y, cellSize, cellSize, cellRadius)
+          .fill(getRegionColor(cell.regionId));
 
         const marker = new Graphics();
         this.drawCellMarker(marker, cell.placed, cellSize);
@@ -489,8 +490,25 @@ export class GameplayScene extends Container implements IScene {
     this.drawGridLines(gridLines, size, cellSize);
     this.drawAllRegionBorders(regionBorders, boardState, size, cellSize);
 
-    // underlay → fills → continuous grid → region borders → markers
-    container.addChild(boardUnderlay, regionFills, gridLines, regionBorders, markersLayer);
+    outerPerimeter.roundRect(0, 0, boardWidth, boardHeight, cellRadius).stroke({
+      width: REGION_BORDER_WIDTH,
+      color: COLORS.regionBorder,
+      alignment: 1,
+      join: 'round',
+      cap: 'round',
+    });
+
+    boardMask.roundRect(0, 0, boardWidth, boardHeight, cellRadius).fill(0xffffff);
+
+    // underlay → fills → grid → internal region borders → master perimeter → markers
+    container.addChild(
+      boardUnderlay,
+      regionFills,
+      gridLines,
+      regionBorders,
+      outerPerimeter,
+      markersLayer,
+    );
     // --- DEBUG_MODE panel ---
     if (this.debugMode) {
       this.solutionOverlay = new Graphics();
@@ -498,6 +516,8 @@ export class GameplayScene extends Container implements IScene {
       container.addChild(this.solutionOverlay);
     }
     // --- END DEBUG_MODE panel ---
+    container.addChild(boardMask);
+    container.mask = boardMask;
     this.attachBoardPointerHandlers(container, size, cellSize);
   }
 
@@ -678,6 +698,14 @@ export class GameplayScene extends Container implements IScene {
       col < size &&
       boardState[row]?.[col]?.regionId === regionId;
 
+    // On-board neighbor with a different region (skips board perimeter edges).
+    const isInternalBoundary = (row: number, col: number): boolean =>
+      row >= 0 &&
+      row < size &&
+      col >= 0 &&
+      col < size &&
+      boardState[row]?.[col]?.regionId !== regionId;
+
     type GridPoint = { r: number; c: number };
     const pointKey = (p: GridPoint): string => `${p.r},${p.c}`;
     const edgeKey = (from: GridPoint, to: GridPoint): string =>
@@ -701,17 +729,17 @@ export class GameplayScene extends Container implements IScene {
           continue;
         }
 
-        // Clockwise boundary around the region (region on the right while walking).
-        if (!isInRegion(row - 1, col)) {
+        // Internal region–region edges only; outer frame is the master perimeter.
+        if (isInternalBoundary(row - 1, col)) {
           addEdge({ r: row, c: col }, { r: row, c: col + 1 });
         }
-        if (!isInRegion(row, col + 1)) {
+        if (isInternalBoundary(row, col + 1)) {
           addEdge({ r: row, c: col + 1 }, { r: row + 1, c: col + 1 });
         }
-        if (!isInRegion(row + 1, col)) {
+        if (isInternalBoundary(row + 1, col)) {
           addEdge({ r: row + 1, c: col + 1 }, { r: row + 1, c: col });
         }
-        if (!isInRegion(row, col - 1)) {
+        if (isInternalBoundary(row, col - 1)) {
           addEdge({ r: row + 1, c: col }, { r: row, c: col });
         }
       }
