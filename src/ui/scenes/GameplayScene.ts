@@ -24,6 +24,7 @@ export interface GameplaySceneCallbacks {
   onInteractionEnd: () => void;
   onUndoClick: () => void;
   onAutoFillToggle: () => void;
+  onClearBoard: () => void;
   onBackToLevels: () => void;
   onPreviousLevel: () => void;
   onNextLevel: () => void;
@@ -211,6 +212,18 @@ export class GameplayScene extends Container implements IScene {
     this.autoFillButton.x = this.undoButton.x + undoButtonWidth + BUTTON_GAP;
     this.autoFillButton.y = SCREEN_PADDING;
     this.addChild(this.autoFillButton);
+
+    const clearButtonWidth = 90;
+    const clearButton = new Button({
+      width: clearButtonWidth,
+      height: 40,
+      label: 'Clear',
+      color: COLORS.buttonBack,
+      onClick: () => this.callbacks.onClearBoard(),
+    });
+    clearButton.x = this.autoFillButton.x + autoFillButtonWidth + BUTTON_GAP;
+    clearButton.y = SCREEN_PADDING;
+    this.addChild(clearButton);
 
     this.timerText = new Text({
       text: formatTime(elapsedSeconds),

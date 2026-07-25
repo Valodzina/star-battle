@@ -16,6 +16,7 @@ export interface GameViewCallbacks {
   onInteractionEnd: () => void;
   onUndoClick: () => void;
   onAutoFillToggle: () => void;
+  onClearBoard: () => void;
   onBackToLevels: () => void;
   onPreviousLevel: () => void;
   onNextLevel: () => void;
@@ -43,6 +44,7 @@ export class GameView {
     onInteractionEnd: () => undefined,
     onUndoClick: () => undefined,
     onAutoFillToggle: () => undefined,
+    onClearBoard: () => undefined,
     onBackToLevels: () => undefined,
     onPreviousLevel: () => undefined,
     onNextLevel: () => undefined,
@@ -98,6 +100,7 @@ export class GameView {
           onInteractionEnd: () => this.callbacks.onInteractionEnd(),
           onUndoClick: () => this.callbacks.onUndoClick(),
           onAutoFillToggle: () => this.callbacks.onAutoFillToggle(),
+          onClearBoard: () => this.callbacks.onClearBoard(),
           onBackToLevels: () => this.callbacks.onBackToLevels(),
           onPreviousLevel: () => this.callbacks.onPreviousLevel(),
           onNextLevel: () => this.callbacks.onNextLevel(),

@@ -309,6 +309,18 @@ export class GameController {
         this.view.setAutoFillEnabled(enabled);
         this.syncGameplayBoard();
       },
+      onClearBoard: () => {
+        this.pendingDragChanges = [];
+        this.model.clearBoard();
+        this.model.applyAutoFillRules();
+        // --- DEBUG_MODE panel ---
+        if (!this.model.isShowingSolution()) {
+          this.view.clearSolutionOverlay();
+        }
+        // --- END DEBUG_MODE panel ---
+        this.syncGameplayBoard();
+        this.view.setUndoEnabled(this.model.canUndo());
+      },
       onBackToLevels: () => {
         this.stopTimer();
         this.pendingDragChanges = [];

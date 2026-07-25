@@ -210,6 +210,57 @@ export class GameModel {
     return this.moveHistory.length > 0;
   }
 
+  clearBoard(): void {
+    const gameplay = this.state.gameplay;
+    if (!gameplay || gameplay.isVictory) {
+      return;
+    }
+
+    // --- DEBUG_MODE panel ---
+    this.clearSolutionHighlight();
+    // --- END DEBUG_MODE panel ---
+
+    const changes: CellChange[] = [];
+    for (let row = 0; row < gameplay.boardState.length; row += 1) {
+      const boardRow = gameplay.boardState[row];
+      if (!boardRow) {
+        continue;
+      }
+
+      for (let col = 0; col < boardRow.length; col += 1) {
+        const cell = boardRow[col];
+        if (!cell || (cell.placed !== 'dot' && cell.placed !== 'element')) {
+          continue;
+        }
+
+        changes.push({
+          row,
+          col,
+          previousState: cell.placed,
+          newState: 'nothing',
+        });
+      }
+    }
+
+    this.pushMove({ changes });
+
+    const boardState = gameplay.boardState.map((boardRow) =>
+      boardRow.map((boardCell) =>
+        boardCell.placed === 'nothing' ? boardCell : { ...boardCell, placed: 'nothing' as const },
+      ),
+    );
+
+    this.state = {
+      ...this.state,
+      gameplay: {
+        ...gameplay,
+        boardState,
+      },
+    };
+
+    this.updateGameplayFromBoard();
+  }
+
   cycleCell(row: number, col: number): CellChange | null {
     const gameplay = this.state.gameplay;
     if (!gameplay || gameplay.isVictory) {
