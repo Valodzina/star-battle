@@ -16,7 +16,14 @@ import {
 } from '../constants';
 import { Button } from '../components/Button';
 import type { IScene } from './IScene';
-import { getStarTexture } from '../gameAssets';
+import { getStarTexture, getStarWinTexture } from '../gameAssets';
+
+const VICTORY_CARD_WIDTH = 280;
+const VICTORY_CARD_HEIGHT = 320;
+const VICTORY_CARD_RADIUS = 16;
+const VICTORY_STAR_SIZE = 96;
+const VICTORY_BUTTON_WIDTH = 200;
+const VICTORY_BUTTON_HEIGHT = 44;
 
 const LEVEL_ID_PATTERN = /^(easy|medium|hard)_(\d+)$/;
 
@@ -80,6 +87,10 @@ export class GameplayScene extends Container implements IScene {
   private isAutoFillEnabled: boolean;
   private cellMarkers: Container[][] = [];
   private victoryOverlay: Container | null = null;
+  private victoryCardContainer: Container | null = null;
+  private victoryTimeText: Text | null = null;
+  private victoryNextButton: Button | null = null;
+  private lastElapsedSeconds = 0;
   // --- DEBUG_MODE panel ---
   private solutionOverlay: Graphics | null = null;
   // --- END DEBUG_MODE panel ---
@@ -131,6 +142,7 @@ export class GameplayScene extends Container implements IScene {
   }
 
   updateTimerDisplay(seconds: number): void {
+    this.lastElapsedSeconds = seconds;
     if (this.timerText && !this.timerText.destroyed) {
       this.timerText.text = formatTime(seconds);
     }
@@ -407,9 +419,9 @@ export class GameplayScene extends Container implements IScene {
     }
     // --- END DEBUG_MODE panel ---
 
+    this.lastElapsedSeconds = elapsedSeconds;
     this.victoryOverlay = this.createVictoryOverlay(width, height);
     this.victoryOverlay.visible = false;
-    this.victoryOverlay.alpha = 0;
     this.addChild(this.victoryOverlay);
 
     if (isVictory) {
@@ -527,6 +539,8 @@ export class GameplayScene extends Container implements IScene {
   }
 
   private applyNextLevelButtonState(): void {
+    this.applyVictoryNextButtonState();
+
     if (!this.rightArrow || this.rightArrow.destroyed) {
       return;
     }
@@ -938,62 +952,112 @@ export class GameplayScene extends Container implements IScene {
 
   private createVictoryOverlay(width: number, height: number): Container {
     const overlay = new Container();
-    overlay.eventMode = 'static';
+    overlay.eventMode = 'passive';
 
-    const backdrop = new Graphics();
-    backdrop.rect(0, GAMEPLAY_HEADER_HEIGHT, width, height - GAMEPLAY_HEADER_HEIGHT).fill({
-      color: COLORS.victoryOverlay,
-      alpha: 0.85,
-    });
-    backdrop.alpha = 0;
+    const cardContainer = new Container();
+    cardContainer.x = width / 2;
+    cardContainer.y = height / 2;
+    cardContainer.pivot.set(VICTORY_CARD_WIDTH / 2, VICTORY_CARD_HEIGHT / 2);
+    cardContainer.scale.set(0);
+    cardContainer.eventMode = 'static';
 
-    const victoryText = new Text({
-      text: 'Victory!',
+    const shadow = new Graphics();
+    shadow
+      .roundRect(4, 6, VICTORY_CARD_WIDTH, VICTORY_CARD_HEIGHT, VICTORY_CARD_RADIUS)
+      .fill({ color: COLORS.victoryCardShadow, alpha: 0.22 });
+
+    const background = new Graphics();
+    background
+      .roundRect(0, 0, VICTORY_CARD_WIDTH, VICTORY_CARD_HEIGHT, VICTORY_CARD_RADIUS)
+      .fill(COLORS.victoryCard);
+
+    const titleText = new Text({
+      text: 'SOLVED',
       style: {
-        fill: COLORS.victoryText,
+        fill: COLORS.victoryCardTitle,
         fontFamily: FONT_FAMILY,
-        fontSize: 48,
+        fontSize: 36,
         fontWeight: '700',
       },
     });
-    victoryText.anchor.set(0.5);
-    victoryText.x = width / 2;
-    victoryText.y = height / 2;
-    victoryText.alpha = 0;
+    titleText.anchor.set(0.5, 0);
+    titleText.x = VICTORY_CARD_WIDTH / 2;
+    titleText.y = 28;
 
-    overlay.addChild(backdrop, victoryText);
+    const timeText = new Text({
+      text: `Time: ${formatTime(this.lastElapsedSeconds)}`,
+      style: {
+        fill: COLORS.victoryCardTime,
+        fontFamily: FONT_FAMILY,
+        fontSize: 20,
+        fontWeight: '600',
+      },
+    });
+    timeText.anchor.set(0.5, 0);
+    timeText.x = VICTORY_CARD_WIDTH / 2;
+    timeText.y = 78;
+    this.victoryTimeText = timeText;
+
+    const starSprite = new Sprite(getStarWinTexture());
+    starSprite.anchor.set(0.5);
+    starSprite.width = VICTORY_STAR_SIZE;
+    starSprite.height = VICTORY_STAR_SIZE;
+    starSprite.x = VICTORY_CARD_WIDTH / 2;
+    starSprite.y = 170;
+    starSprite.tint = COLORS.victoryStarTint;
+
+    const nextButton = new Button({
+      width: VICTORY_BUTTON_WIDTH,
+      height: VICTORY_BUTTON_HEIGHT,
+      label: this.hasNextLevel ? 'Next Level' : 'Level Select',
+      color: COLORS.buttonEasy,
+      onClick: () => {
+        if (this.hasNextLevel) {
+          this.callbacks.onNextLevel();
+        } else {
+          this.callbacks.onBackToLevels();
+        }
+      },
+    });
+    nextButton.x = (VICTORY_CARD_WIDTH - VICTORY_BUTTON_WIDTH) / 2;
+    nextButton.y = VICTORY_CARD_HEIGHT - VICTORY_BUTTON_HEIGHT - 28;
+    this.victoryNextButton = nextButton;
+
+    cardContainer.addChild(shadow, background, titleText, timeText, starSprite, nextButton);
+    this.victoryCardContainer = cardContainer;
+    overlay.addChild(cardContainer);
 
     return overlay;
   }
 
-  private showVictoryOverlay(): void {
-    if (!this.victoryOverlay || this.victoryOverlay.visible) {
+  private applyVictoryNextButtonState(): void {
+    if (!this.victoryNextButton || this.victoryNextButton.destroyed) {
       return;
     }
 
-    const backdrop = this.victoryOverlay.children[0];
-    const victoryText = this.victoryOverlay.children[1];
+    this.victoryNextButton.setLabel(this.hasNextLevel ? 'Next Level' : 'Level Select');
+  }
+
+  private showVictoryOverlay(): void {
+    if (!this.victoryOverlay || !this.victoryCardContainer || this.victoryOverlay.visible) {
+      return;
+    }
+
+    if (this.victoryTimeText && !this.victoryTimeText.destroyed) {
+      this.victoryTimeText.text = `Time: ${formatTime(this.lastElapsedSeconds)}`;
+    }
+    this.applyVictoryNextButtonState();
 
     this.victoryOverlay.visible = true;
-    this.victoryOverlay.alpha = 1;
+    this.victoryCardContainer.scale.set(0);
 
-    if (backdrop) {
-      backdrop.alpha = 0;
-      const backdropTween = gsap.to(backdrop, {
-        alpha: 0.85,
-        duration: 0.5,
-      });
-      this.trackTween(backdropTween);
-    }
-
-    if (victoryText) {
-      victoryText.alpha = 0;
-      const textTween = gsap.to(victoryText, {
-        alpha: 1,
-        duration: 0.5,
-      });
-      this.trackTween(textTween);
-    }
+    const scaleTween = gsap.to(this.victoryCardContainer.scale, {
+      x: 1,
+      y: 1,
+      duration: 0.5,
+      ease: 'back.out(1.5)',
+    });
+    this.trackTween(scaleTween);
   }
 
   private hideVictoryOverlay(): void {
@@ -1002,7 +1066,9 @@ export class GameplayScene extends Container implements IScene {
     }
 
     this.victoryOverlay.visible = false;
-    this.victoryOverlay.alpha = 0;
+    if (this.victoryCardContainer && !this.victoryCardContainer.destroyed) {
+      this.victoryCardContainer.scale.set(0);
+    }
   }
 
   private applyAutoFillButtonAppearance(): void {
@@ -1022,6 +1088,9 @@ export class GameplayScene extends Container implements IScene {
     this.autoFillButton = null;
     this.cellMarkers = [];
     this.victoryOverlay = null;
+    this.victoryCardContainer = null;
+    this.victoryTimeText = null;
+    this.victoryNextButton = null;
     // --- DEBUG_MODE panel ---
     this.solutionOverlay = null;
     // --- END DEBUG_MODE panel ---

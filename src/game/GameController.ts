@@ -363,6 +363,14 @@ export class GameController {
       return;
     }
 
+    if (gameplay.isVictory) {
+      this.stopTimer();
+      if (!this.wasVictory) {
+        this.progressManager.markCompleted(gameplay.level.id);
+        this.view.refreshLevelNavigation();
+      }
+    }
+
     this.view.updateGameplayBoard(
       gameplay.boardState,
       gameplay.remainingElements,
@@ -371,11 +379,6 @@ export class GameController {
     this.view.updateInvalidStars(this.model.getInvalidStarPositions());
 
     if (gameplay.isVictory) {
-      this.stopTimer();
-      if (!this.wasVictory) {
-        this.progressManager.markCompleted(gameplay.level.id);
-        this.view.refreshLevelNavigation();
-      }
       this.wasVictory = true;
     } else {
       this.wasVictory = false;

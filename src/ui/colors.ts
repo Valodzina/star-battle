@@ -22,8 +22,11 @@ export const COLORS = {
 
   elementFill: 0x44505c,
   dotFill: 0x677482,
-  victoryOverlay: 0x000000,
-  victoryText: 0xffffff,
+  victoryCard: 0xffffff,
+  victoryCardShadow: 0x000000,
+  victoryCardTitle: 0x2a2a4a,
+  victoryCardTime: 0x44505c,
+  victoryStarTint: 0xf0c38d,
   answerColor: 0x000000,
 } as const;
 

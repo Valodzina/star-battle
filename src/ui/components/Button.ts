@@ -44,9 +44,8 @@ export class Button extends Container {
         fontWeight: '700',
       },
     });
-    this.labelText.x = 16;
-
     if (subtitle) {
+      this.labelText.x = 16;
       this.labelText.y = 14;
       const subtitleText = new Text({
         text: subtitle,
@@ -60,7 +59,8 @@ export class Button extends Container {
       subtitleText.y = 40;
       this.addChild(this.background, this.labelText, subtitleText);
     } else {
-      this.labelText.anchor.set(0, 0.5);
+      this.labelText.anchor.set(0.5);
+      this.labelText.x = width / 2;
       this.labelText.y = height / 2;
       this.addChild(this.background, this.labelText);
     }
