@@ -1,4 +1,4 @@
-import { Container, FederatedPointerEvent, Graphics, Rectangle, Text } from 'pixi.js';
+import { Container, FederatedPointerEvent, Graphics, Rectangle, Text, Sprite } from 'pixi.js';
 import gsap from 'gsap';
 import type { CellState, GameplayState } from '../../types/level';
 import type { ProgressManager } from '../../services/ProgressManager';
@@ -16,6 +16,7 @@ import {
 } from '../constants';
 import { Button } from '../components/Button';
 import type { IScene } from './IScene';
+import { getStarTexture } from '../gameAssets';
 
 const LEVEL_ID_PATTERN = /^(easy|medium|hard)_(\d+)$/;
 
@@ -76,7 +77,7 @@ export class GameplayScene extends Container implements IScene {
   private undoButton: Button | null = null;
   private autoFillButton: Button | null = null;
   private isAutoFillEnabled: boolean;
-  private cellMarkerGraphics: Graphics[][] = [];
+  private cellMarkers: Container[][] = [];
   private victoryOverlay: Container | null = null;
   // --- DEBUG_MODE panel ---
   private solutionOverlay: Graphics | null = null;
@@ -157,7 +158,7 @@ export class GameplayScene extends Container implements IScene {
     for (let row = 0; row < boardState.length; row += 1) {
       for (let col = 0; col < (boardState[row]?.length ?? 0); col += 1) {
         const cell = boardState[row]?.[col];
-        const marker = this.cellMarkerGraphics[row]?.[col];
+        const marker = this.cellMarkers[row]?.[col];
         if (cell && marker) {
           this.drawCellMarker(marker, cell.placed, this.currentCellSize);
         }
@@ -510,7 +511,7 @@ export class GameplayScene extends Container implements IScene {
     const outerPerimeter = new Graphics();
     const markersLayer = new Container();
     const boardMask = new Graphics();
-    this.cellMarkerGraphics = [];
+    this.cellMarkers = [];
     this.boardState = boardState;
     this.boardSize = size;
 
@@ -523,7 +524,7 @@ export class GameplayScene extends Container implements IScene {
       .fill(COLORS.boardUnderlay);
 
     for (let row = 0; row < size; row += 1) {
-      const markerRow: Graphics[] = [];
+      const markerRow: Container[] = [];
       for (let col = 0; col < size; col += 1) {
         const cell = boardState[row]?.[col];
         if (!cell) {
@@ -538,14 +539,14 @@ export class GameplayScene extends Container implements IScene {
           .roundRect(x, y, cellSize, cellSize, cellRadius)
           .fill(getRegionColor(cell.regionId));
 
-        const marker = new Graphics();
+        const marker = new Container();
         this.drawCellMarker(marker, cell.placed, cellSize);
         marker.x = x;
         marker.y = y;
         markerRow.push(marker);
         markersLayer.addChild(marker);
       }
-      this.cellMarkerGraphics.push(markerRow);
+      this.cellMarkers.push(markerRow);
     }
 
     this.drawGridLines(gridLines, size, cellSize);
@@ -855,8 +856,10 @@ export class GameplayScene extends Container implements IScene {
     }
   }
 
-  private drawCellMarker(graphics: Graphics, placed: CellState['placed'], cellSize: number): void {
-    graphics.clear();
+  private drawCellMarker(marker: Container, placed: CellState['placed'], cellSize: number): void {
+    marker.removeChildren().forEach((child) => {
+      child.destroy();
+    });
 
     if (placed === 'nothing') {
       return;
@@ -867,12 +870,19 @@ export class GameplayScene extends Container implements IScene {
 
     if (placed === 'dot' || placed === 'auto-dot') {
       const radius = cellSize * 0.075;
-      graphics.circle(centerX, centerY, radius).fill(COLORS.dotFill);
+      const dot = new Graphics().circle(centerX, centerY, radius).fill(COLORS.dotFill);
+      marker.addChild(dot);
       return;
     }
 
-    const radius = cellSize * 0.175;
-    graphics.circle(centerX, centerY, radius).fill(COLORS.elementFill);
+    const sprite = new Sprite(getStarTexture());
+    sprite.width = cellSize * 0.8;
+    sprite.height = cellSize * 0.8;
+    sprite.anchor.set(0.5);
+    sprite.x = centerX;
+    sprite.y = centerY;
+    sprite.tint = COLORS.elementFill;
+    marker.addChild(sprite);
   }
 
   private createVictoryOverlay(width: number, height: number): Container {
@@ -959,7 +969,7 @@ export class GameplayScene extends Container implements IScene {
     this.remainingText = null;
     this.undoButton = null;
     this.autoFillButton = null;
-    this.cellMarkerGraphics = [];
+    this.cellMarkers = [];
     this.victoryOverlay = null;
     // --- DEBUG_MODE panel ---
     this.solutionOverlay = null;

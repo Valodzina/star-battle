@@ -4,6 +4,7 @@ import { Application } from 'pixi.js';
 import { GameController } from './game/GameController';
 import { LevelManager } from './services/LevelManager';
 import { COLORS } from './ui/colors';
+import { loadGameAssets } from './ui/gameAssets';
 
 // DEBUG MODE: Set to true to bypass menus and load the first Easy level immediately.
 // Set to false (or comment out the skip block below) to restore the normal Main Menu flow.
@@ -18,6 +19,8 @@ async function bootstrap(): Promise<void> {
     resolution: window.devicePixelRatio || 1,
     autoDensity: true,
   });
+
+  await loadGameAssets();
 
   const container = document.getElementById('app');
   if (container) {

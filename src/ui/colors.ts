@@ -20,7 +20,7 @@ export const COLORS = {
   boardUnderlay: 0x44505c,
   cellPlayable: 0x2e2e4e,
 
-  elementFill: 0xf4a261,
+  elementFill: 0x44505c,
   dotFill: 0x677482,
   victoryOverlay: 0x000000,
   victoryText: 0xffffff,
@@ -28,16 +28,16 @@ export const COLORS = {
 } as const;
 
 export const REGION_COLORS: readonly number[] = [
-  0x9CB8CB,
-  0x8EA5C0,
-  0xA098BE,
-  0xB39BB8,
-  0xC49FAA,
-  0xC39B87,
-  0xC5B187,
-  0xA5B996,
-  0x91ADA0,
-  0xB6A0A9,
+  0xB3C9D8,
+0xA9BCD2,
+0xBAB6D1,
+0xC9B7CC,
+0xD8BBC4,
+0xD7B9A5,
+0xD8C9A5,
+0xBFCFB0,
+0xADC4B6,
+0xCBB8C0,
 ] as const;
 
 export function getRegionColor(regionId: number): number {

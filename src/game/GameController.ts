@@ -8,7 +8,7 @@ import { ProgressManager } from '../services/ProgressManager';
 import { solve } from '../utils/StarBattleSolver';
 import { generateLevel } from '../utils/StarBattleGenerator';
 
-const DEBUG_MODE = true;
+const DEBUG_MODE = false;
 // --- END DEBUG_MODE panel ---
 
 export class GameController {
