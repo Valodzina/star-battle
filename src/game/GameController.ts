@@ -3,6 +3,7 @@ import { GameModel, type CellChange } from './GameModel';
 import { GameView } from './GameView';
 import type { Difficulty, ScreenId } from '../types/level';
 import type { LevelManager } from '../services/LevelManager';
+import { ProgressManager } from '../services/ProgressManager';
 // --- DEBUG_MODE panel ---
 import { solve } from '../utils/StarBattleSolver';
 import { generateLevel } from '../utils/StarBattleGenerator';
@@ -15,14 +16,17 @@ export class GameController {
   private readonly view: GameView;
   private readonly app: Application;
   private readonly levelManager: LevelManager;
+  private readonly progressManager: ProgressManager;
   private timerIntervalId: ReturnType<typeof setInterval> | null = null;
   private lastScreen: ScreenId | null = null;
   private pendingDragChanges: CellChange[] = [];
+  private wasVictory = false;
 
   constructor(app: Application, levelManager: LevelManager) {
     this.app = app;
     this.levelManager = levelManager;
-    this.view = new GameView(app, levelManager, DEBUG_MODE);
+    this.progressManager = new ProgressManager(levelManager);
+    this.view = new GameView(app, levelManager, this.progressManager, DEBUG_MODE);
   }
 
   /** Bypass menus and load a level directly (used by DEBUG_SKIP_TO_LEVEL in main.ts). */
@@ -36,6 +40,7 @@ export class GameController {
     }
 
     this.pendingDragChanges = [];
+    this.wasVictory = false;
     this.model.setDifficulty(difficulty);
     this.model.loadLevel(level, index, this.levelManager.getLevelCount(difficulty));
     this.model.setScreen('gameplay');
@@ -55,12 +60,13 @@ export class GameController {
       this.model.getState().selectedDifficulty ?? gameplay.level.difficulty;
     const nextIndex = gameplay.levelIndex + 1;
     const level = this.levelManager.getLevel(difficulty, nextIndex);
-    if (!level) {
+    if (!level || !this.progressManager.isUnlocked(level.id)) {
       return;
     }
 
     this.stopTimer();
     this.pendingDragChanges = [];
+    this.wasVictory = false;
     this.model.clearSolutionHighlight();
     this.view.clearSolutionOverlay();
 
@@ -95,6 +101,7 @@ export class GameController {
 
     this.stopTimer();
     this.pendingDragChanges = [];
+    this.wasVictory = false;
     this.model.clearSolutionHighlight();
     this.view.clearSolutionOverlay();
 
@@ -118,6 +125,7 @@ export class GameController {
         this.lastScreen = state.screen;
 
         if (state.screen === 'gameplay') {
+          this.wasVictory = state.gameplay?.isVictory ?? false;
           this.view.setUndoEnabled(this.model.canUndo());
           this.view.setAutoFillEnabled(this.model.isAutoFillOn());
           this.startTimer();
@@ -189,6 +197,7 @@ export class GameController {
 
     this.stopTimer();
     this.pendingDragChanges = [];
+    this.wasVictory = false;
     this.model.clearSolutionHighlight();
     this.view.clearSolutionOverlay();
 
@@ -229,11 +238,12 @@ export class GameController {
         }
 
         const level = this.levelManager.getLevel(difficulty, index);
-        if (!level) {
+        if (!level || !this.progressManager.isUnlocked(level.id)) {
           return;
         }
 
         this.pendingDragChanges = [];
+        this.wasVictory = false;
         this.model.loadLevel(level, index, this.levelManager.getLevelCount(difficulty));
         this.model.setScreen('gameplay');
         this.view.setUndoEnabled(this.model.canUndo());
@@ -301,6 +311,7 @@ export class GameController {
 
         const gameplay = this.model.getGameplay();
         if (gameplay && !gameplay.isVictory) {
+          this.wasVictory = false;
           this.startTimer();
         }
       },
@@ -311,6 +322,7 @@ export class GameController {
       },
       onClearBoard: () => {
         this.pendingDragChanges = [];
+        this.wasVictory = false;
         this.model.clearBoard();
         this.model.applyAutoFillRules();
         // --- DEBUG_MODE panel ---
@@ -324,6 +336,7 @@ export class GameController {
       onBackToLevels: () => {
         this.stopTimer();
         this.pendingDragChanges = [];
+        this.wasVictory = false;
         this.model.clearGameplay();
         this.model.setScreen('levelSelect');
       },
@@ -358,6 +371,13 @@ export class GameController {
 
     if (gameplay.isVictory) {
       this.stopTimer();
+      if (!this.wasVictory) {
+        this.progressManager.markCompleted(gameplay.level.id);
+        this.view.refreshLevelNavigation();
+      }
+      this.wasVictory = true;
+    } else {
+      this.wasVictory = false;
     }
   }
 

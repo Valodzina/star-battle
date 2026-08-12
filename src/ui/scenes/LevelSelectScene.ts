@@ -2,6 +2,7 @@ import { Container, Text } from 'pixi.js';
 import type { Difficulty } from '../../types/level';
 import { DIFFICULTY_META } from '../../types/level';
 import type { LevelManager } from '../../services/LevelManager';
+import type { ProgressManager } from '../../services/ProgressManager';
 import { COLORS } from '../colors';
 import { FONT_FAMILY, SCREEN_PADDING, TILE_GAP } from '../constants';
 import { Button } from '../components/Button';
@@ -24,16 +25,19 @@ function getColumnsPerRow(width: number, height: number): number {
 export class LevelSelectScene extends Container implements IScene {
   private readonly difficulty: Difficulty;
   private readonly levelManager: LevelManager;
+  private readonly progressManager: ProgressManager;
   private readonly callbacks: LevelSelectSceneCallbacks;
 
   constructor(
     difficulty: Difficulty,
     levelManager: LevelManager,
+    progressManager: ProgressManager,
     callbacks: LevelSelectSceneCallbacks,
   ) {
     super();
     this.difficulty = difficulty;
     this.levelManager = levelManager;
+    this.progressManager = progressManager;
     this.callbacks = callbacks;
     this.visible = false;
   }
@@ -93,11 +97,23 @@ export class LevelSelectScene extends Container implements IScene {
     grid.y = contentTop;
 
     for (let index = 0; index < levelCount; index += 1) {
+      const level = this.levelManager.getLevel(this.difficulty, index);
+      if (!level) {
+        continue;
+      }
+
+      const state = this.progressManager.isCompleted(level.id)
+        ? 'completed'
+        : this.progressManager.isUnlocked(level.id)
+          ? 'unlocked'
+          : 'locked';
+
       const row = Math.floor(index / columns);
       const column = index % columns;
       const tile = new LevelTile({
         size: tileSize,
         label: `Level ${index + 1}`,
+        state,
         onClick: () => this.callbacks.onLevelSelected(index),
       });
       tile.x = column * (tileSize + TILE_GAP);

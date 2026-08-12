@@ -113,4 +113,14 @@ export class LevelManager {
   getDifficulties(): Difficulty[] {
     return DIFFICULTY_ORDER.filter((difficulty) => this.getLevelCount(difficulty) > 0);
   }
+
+  getLevelById(id: string): LevelData | undefined {
+    for (const difficulty of DIFFICULTY_ORDER) {
+      const match = this.getAllLevels(difficulty).find((level) => level.id === id);
+      if (match) {
+        return match;
+      }
+    }
+    return undefined;
+  }
 }

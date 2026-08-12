@@ -1,6 +1,7 @@
 import { Container, FederatedPointerEvent, Graphics, Rectangle, Text } from 'pixi.js';
 import gsap from 'gsap';
 import type { CellState, GameplayState } from '../../types/level';
+import type { ProgressManager } from '../../services/ProgressManager';
 import { COLORS, getRegionColor } from '../colors';
 import {
   BUTTON_GAP,
@@ -15,6 +16,28 @@ import {
 } from '../constants';
 import { Button } from '../components/Button';
 import type { IScene } from './IScene';
+
+const LEVEL_ID_PATTERN = /^(easy|medium|hard)_(\d+)$/;
+
+function adjacentLevelId(levelId: string, delta: number): string | null {
+  const match = LEVEL_ID_PATTERN.exec(levelId);
+  if (!match) {
+    return null;
+  }
+
+  const difficulty = match[1];
+  const index = Number(match[2]);
+  if (!difficulty || !Number.isFinite(index)) {
+    return null;
+  }
+
+  const nextIndex = index + delta;
+  if (nextIndex < 1) {
+    return null;
+  }
+
+  return `${difficulty}_${nextIndex}`;
+}
 
 export interface GameplaySceneCallbacks {
   onCellTap: (row: number, col: number) => void;
@@ -42,6 +65,7 @@ function formatTime(seconds: number): string {
 export class GameplayScene extends Container implements IScene {
   private readonly gameplay: GameplayState;
   private readonly callbacks: GameplaySceneCallbacks;
+  private readonly progressManager: ProgressManager;
   // --- DEBUG_MODE panel ---
   private readonly debugMode: boolean;
   // --- END DEBUG_MODE panel ---
@@ -65,16 +89,22 @@ export class GameplayScene extends Container implements IScene {
   private isDragging = false;
   private dragMode: 'painting' | 'erasing' | null = null;
   private lastEnteredCell: { row: number; col: number } | null = null;
+  private hasPreviousLevel = false;
+  private hasNextLevel = false;
+  private rightArrow: Text | null = null;
+  private nextLevelTapHandler: ((event: FederatedPointerEvent) => void) | null = null;
 
   constructor(
     gameplay: GameplayState,
     callbacks: GameplaySceneCallbacks,
+    progressManager: ProgressManager,
     isAutoFillEnabled = true,
     debugMode = false,
   ) {
     super();
     this.gameplay = gameplay;
     this.callbacks = callbacks;
+    this.progressManager = progressManager;
     this.isAutoFillEnabled = isAutoFillEnabled;
     this.debugMode = debugMode;
     this.visible = false;
@@ -336,9 +366,13 @@ export class GameplayScene extends Container implements IScene {
   }
 
   private buildLevelNavigation(x: number, y: number, width: number): void {
-    const { levelIndex, levelCount } = this.gameplay;
-    const hasPrevious = levelIndex > 0;
-    const hasNext = levelIndex < levelCount - 1;
+    const { levelIndex, levelCount, level } = this.gameplay;
+    this.hasPreviousLevel = levelIndex > 0;
+    const nextLevelId = adjacentLevelId(level.id, 1);
+    this.hasNextLevel =
+      levelIndex < levelCount - 1 &&
+      nextLevelId !== null &&
+      this.progressManager.isUnlocked(nextLevelId);
 
     const navigationContainer = new Container();
     navigationContainer.x = x;
@@ -365,9 +399,9 @@ export class GameplayScene extends Container implements IScene {
       const deltaX = event.global.x - swipeStartX;
       swipeStartX = null;
 
-      if (deltaX > LEVEL_NAV_SWIPE_THRESHOLD && hasPrevious) {
+      if (deltaX > LEVEL_NAV_SWIPE_THRESHOLD && this.hasPreviousLevel) {
         this.callbacks.onPreviousLevel();
-      } else if (deltaX < -LEVEL_NAV_SWIPE_THRESHOLD && hasNext) {
+      } else if (deltaX < -LEVEL_NAV_SWIPE_THRESHOLD && this.hasNextLevel) {
         this.callbacks.onNextLevel();
       }
     };
@@ -401,7 +435,7 @@ export class GameplayScene extends Container implements IScene {
     leftArrow.anchor.set(0.5);
     leftArrow.x = 28;
     leftArrow.y = LEVEL_NAV_HEIGHT / 2;
-    if (hasPrevious) {
+    if (this.hasPreviousLevel) {
       leftArrow.alpha = 1;
       leftArrow.eventMode = 'static';
       leftArrow.cursor = 'pointer';
@@ -410,7 +444,7 @@ export class GameplayScene extends Container implements IScene {
         this.callbacks.onPreviousLevel();
       });
     } else {
-      leftArrow.alpha = 0.3;
+      leftArrow.alpha = 0.5;
       leftArrow.eventMode = 'none';
     }
     navigationContainer.addChild(leftArrow);
@@ -419,21 +453,48 @@ export class GameplayScene extends Container implements IScene {
     rightArrow.anchor.set(0.5);
     rightArrow.x = width - 28;
     rightArrow.y = LEVEL_NAV_HEIGHT / 2;
-    if (hasNext) {
-      rightArrow.alpha = 1;
-      rightArrow.eventMode = 'static';
-      rightArrow.cursor = 'pointer';
-      rightArrow.on('pointertap', (event: FederatedPointerEvent) => {
-        event.stopPropagation();
-        this.callbacks.onNextLevel();
-      });
-    } else {
-      rightArrow.alpha = 0.3;
-      rightArrow.eventMode = 'none';
-    }
+    this.rightArrow = rightArrow;
+    this.nextLevelTapHandler = (event: FederatedPointerEvent) => {
+      event.stopPropagation();
+      this.callbacks.onNextLevel();
+    };
+    this.applyNextLevelButtonState();
     navigationContainer.addChild(rightArrow);
 
     this.addChild(navigationContainer);
+  }
+
+  refreshLevelNavigation(): void {
+    const { levelIndex, levelCount, level } = this.gameplay;
+    const nextLevelId = adjacentLevelId(level.id, 1);
+    this.hasNextLevel =
+      levelIndex < levelCount - 1 &&
+      nextLevelId !== null &&
+      this.progressManager.isUnlocked(nextLevelId);
+    this.applyNextLevelButtonState();
+  }
+
+  private applyNextLevelButtonState(): void {
+    if (!this.rightArrow || this.rightArrow.destroyed) {
+      return;
+    }
+
+    if (this.nextLevelTapHandler) {
+      this.rightArrow.off('pointertap', this.nextLevelTapHandler);
+    }
+
+    if (this.hasNextLevel) {
+      this.rightArrow.alpha = 1;
+      this.rightArrow.eventMode = 'static';
+      this.rightArrow.cursor = 'pointer';
+      if (this.nextLevelTapHandler) {
+        this.rightArrow.on('pointertap', this.nextLevelTapHandler);
+      }
+    } else {
+      this.rightArrow.alpha = 0.5;
+      this.rightArrow.eventMode = 'none';
+      this.rightArrow.cursor = 'default';
+    }
   }
 
   private buildBoard(
@@ -906,6 +967,10 @@ export class GameplayScene extends Container implements IScene {
     this.currentCellSize = 0;
     this.boardState = [];
     this.boardSize = 0;
+    this.hasPreviousLevel = false;
+    this.hasNextLevel = false;
+    this.rightArrow = null;
+    this.nextLevelTapHandler = null;
   }
 
   private trackTween(tween: gsap.core.Tween): void {

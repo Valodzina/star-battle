@@ -1,6 +1,7 @@
 import { Application, Container } from 'pixi.js';
 import type { CellState, Difficulty, GameState } from '../types/level';
 import type { LevelManager } from '../services/LevelManager';
+import type { ProgressManager } from '../services/ProgressManager';
 import type { IScene } from '../ui/scenes/IScene';
 import { MainMenuScene } from '../ui/scenes/MainMenuScene';
 import { LevelSelectScene } from '../ui/scenes/LevelSelectScene';
@@ -30,6 +31,7 @@ export class GameView {
   private readonly root = new Container();
   private readonly app: Application;
   private readonly levelManager: LevelManager;
+  private readonly progressManager: ProgressManager;
   // --- DEBUG_MODE panel ---
   private readonly debugMode: boolean;
   // --- END DEBUG_MODE panel ---
@@ -57,9 +59,15 @@ export class GameView {
   private currentScene: IScene | null = null;
   private gameplayScene: GameplayScene | null = null;
 
-  constructor(app: Application, levelManager: LevelManager, debugMode = false) {
+  constructor(
+    app: Application,
+    levelManager: LevelManager,
+    progressManager: ProgressManager,
+    debugMode = false,
+  ) {
     this.app = app;
     this.levelManager = levelManager;
+    this.progressManager = progressManager;
     this.debugMode = debugMode;
     this.app.stage.addChild(this.root);
   }
@@ -82,10 +90,15 @@ export class GameView {
     }
 
     if (state.screen === 'levelSelect' && state.selectedDifficulty) {
-      const scene = new LevelSelectScene(state.selectedDifficulty, this.levelManager, {
-        onBackSelected: () => this.callbacks.onBackSelected(),
-        onLevelSelected: (index) => this.callbacks.onLevelSelected(index),
-      });
+      const scene = new LevelSelectScene(
+        state.selectedDifficulty,
+        this.levelManager,
+        this.progressManager,
+        {
+          onBackSelected: () => this.callbacks.onBackSelected(),
+          onLevelSelected: (index) => this.callbacks.onLevelSelected(index),
+        },
+      );
       this.mountScene(scene, width, height);
       return;
     }
@@ -109,6 +122,7 @@ export class GameView {
           onNewBoard: () => this.callbacks.onNewBoard(),
           // --- END DEBUG_MODE panel ---
         },
+        this.progressManager,
         this.autoFillEnabled,
         this.debugMode,
       );
@@ -136,6 +150,10 @@ export class GameView {
     isVictory: boolean,
   ): void {
     this.gameplayScene?.updateGameplayBoard(boardState, remainingElements, isVictory);
+  }
+
+  refreshLevelNavigation(): void {
+    this.gameplayScene?.refreshLevelNavigation();
   }
 
   // --- DEBUG_MODE panel ---

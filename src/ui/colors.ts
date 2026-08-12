@@ -6,6 +6,8 @@ export const COLORS = {
   buttonBack: 0x3d3d5c,
   tile: 0x2a2a4a,
   tileHover: 0x3d3d6b,
+  tileLocked: 0x555555,
+  tileCompletedBadge: 0xffd700,
   text: 0xffffff,
   textMuted: 0xb0b0c8,
   title: 0xe8e8f0,
