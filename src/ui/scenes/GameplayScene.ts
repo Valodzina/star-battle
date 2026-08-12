@@ -6,6 +6,7 @@ import { COLORS, getRegionColor } from '../colors';
 import {
   BUTTON_GAP,
   FONT_FAMILY,
+  GAMEPLAY_FOOTER_HEIGHT,
   GAMEPLAY_HEADER_HEIGHT,
   GRID_LINE_WIDTH,
   LEVEL_NAV_GAP,
@@ -270,92 +271,17 @@ export class GameplayScene extends Container implements IScene {
     const { level, boardState, elapsedSeconds, remainingElements, isVictory } = this.gameplay;
     const size = level.size;
 
-    const backButton = new Button({
-      width: 140,
-      height: 40,
-      label: 'Back to Levels',
-      color: COLORS.buttonBack,
-      onClick: () => this.callbacks.onBackToLevels(),
-    });
-    backButton.x = SCREEN_PADDING;
-    backButton.y = SCREEN_PADDING;
-    this.addChild(backButton);
-
-    const undoButtonWidth = 80;
-    this.undoButton = new Button({
-      width: undoButtonWidth,
-      height: 40,
-      label: 'Undo',
-      color: COLORS.buttonBack,
-      onClick: () => this.callbacks.onUndoClick(),
-    });
-    this.undoButton.x = SCREEN_PADDING + 140 + BUTTON_GAP;
-    this.undoButton.y = SCREEN_PADDING;
-    this.undoButton.setEnabled(false);
-    this.addChild(this.undoButton);
-
-    const autoFillButtonWidth = 150;
-    this.autoFillButton = new Button({
-      width: autoFillButtonWidth,
-      height: 40,
-      label: this.isAutoFillEnabled ? 'Auto-Fill: ON' : 'Auto-Fill: OFF',
-      color: this.isAutoFillEnabled ? COLORS.buttonEasy : COLORS.buttonBack,
-      onClick: () => this.callbacks.onAutoFillToggle(),
-    });
-    this.autoFillButton.x = this.undoButton.x + undoButtonWidth + BUTTON_GAP;
-    this.autoFillButton.y = SCREEN_PADDING;
-    this.addChild(this.autoFillButton);
-
-    const clearButtonWidth = 90;
-    const clearButton = new Button({
-      width: clearButtonWidth,
-      height: 40,
-      label: 'Clear',
-      color: COLORS.buttonBack,
-      onClick: () => this.callbacks.onClearBoard(),
-    });
-    clearButton.x = this.autoFillButton.x + autoFillButtonWidth + BUTTON_GAP;
-    clearButton.y = SCREEN_PADDING;
-    this.addChild(clearButton);
-
-    this.timerText = new Text({
-      text: formatTime(elapsedSeconds),
-      style: {
-        fill: COLORS.title,
-        fontFamily: FONT_FAMILY,
-        fontSize: 28,
-        fontWeight: '700',
-      },
-    });
-    this.timerText.anchor.set(0.5, 0);
-    this.timerText.x = width / 2;
-    this.timerText.y = SCREEN_PADDING + 4;
-    this.addChild(this.timerText);
-
-    this.remainingText = new Text({
-      text: `Left: ${remainingElements}`,
-      style: {
-        fill: COLORS.textMuted,
-        fontFamily: FONT_FAMILY,
-        fontSize: 20,
-        fontWeight: '600',
-      },
-    });
-    this.remainingText.anchor.set(1, 0);
-    this.remainingText.x = width - SCREEN_PADDING;
-    this.remainingText.y = SCREEN_PADDING + 10;
-    this.addChild(this.remainingText);
-
-    const boardAreaTop = SCREEN_PADDING + GAMEPLAY_HEADER_HEIGHT;
-    const boardAreaWidth = width - SCREEN_PADDING * 2;
-    let boardBottomReserve = 0;
+    const headerButtonHeight = 40;
+    const footerButtonHeight = 40;
     // --- DEBUG_MODE panel ---
     const debugButtonHeight = 40;
     const debugButtonGap = 12;
-    if (this.debugMode) {
-      boardBottomReserve = debugButtonHeight + debugButtonGap;
-    }
+    const debugReserve = this.debugMode ? debugButtonHeight + debugButtonGap : 0;
     // --- END DEBUG_MODE panel ---
+
+    const boardAreaTop = SCREEN_PADDING + GAMEPLAY_HEADER_HEIGHT;
+    const boardAreaWidth = width - SCREEN_PADDING * 2;
+    const boardBottomReserve = GAMEPLAY_FOOTER_HEIGHT + debugReserve;
     const boardAreaHeight =
       height -
       boardAreaTop -
@@ -378,22 +304,141 @@ export class GameplayScene extends Container implements IScene {
       LEVEL_NAV_GAP +
       (boardAreaHeight - boardHeight) / 2;
 
-    this.buildLevelNavigation(
-      boardContainer.x,
-      boardContainer.y - LEVEL_NAV_HEIGHT - LEVEL_NAV_GAP,
-      boardWidth,
-    );
+    const boardLeftX = boardContainer.x;
+    const boardRightX = boardContainer.x + boardWidth;
+    const boardCenterX = boardLeftX + boardWidth / 2;
+    const levelNavTop = boardContainer.y - LEVEL_NAV_HEIGHT - LEVEL_NAV_GAP;
+    const boardBottom = boardContainer.y + boardHeight;
 
+    this.buildLevelNavigation(boardLeftX, levelNavTop, boardWidth);
     this.buildBoard(boardContainer, boardState, size, this.currentCellSize);
     this.addChild(boardContainer);
+
+    // --- Shared chrome scale (narrow portrait / short landscape) ---
+    const isPortrait = height > width;
+    const undoButtonWidth = 80;
+    const clearButtonWidth = 90;
+    const autoFillButtonWidth = 150;
+    const footerContentWidth =
+      undoButtonWidth + BUTTON_GAP + clearButtonWidth + BUTTON_GAP + autoFillButtonWidth;
+
+    const availableTopHeight = Math.max(0, levelNavTop - SCREEN_PADDING);
+    const footerBandTop = boardBottom;
+    const footerBandBottom = height - SCREEN_PADDING - debugReserve;
+    const availableBottomHeight = Math.max(0, footerBandBottom - footerBandTop);
+
+    const widthScale = Math.min(1, boardWidth / footerContentWidth);
+    const heightScale = Math.min(
+      1,
+      availableTopHeight / headerButtonHeight,
+      availableBottomHeight / footerButtonHeight,
+    );
+    const uiScale = Math.min(widthScale, heightScale);
+
+    // --- Header: Back / Timer / Remaining, anchored to board edges ---
+    const scaledHeaderHeight = headerButtonHeight * uiScale;
+    const headerY =
+      SCREEN_PADDING + Math.max(0, (availableTopHeight - scaledHeaderHeight) / 2);
+
+    const backButton = new Button({
+      width: 140,
+      height: headerButtonHeight,
+      label: 'Back to Levels',
+      color: COLORS.buttonBack,
+      onClick: () => this.callbacks.onBackToLevels(),
+    });
+    backButton.scale.set(uiScale);
+    backButton.x = boardLeftX;
+    backButton.y = headerY;
+    this.addChild(backButton);
+
+    this.timerText = new Text({
+      text: formatTime(elapsedSeconds),
+      style: {
+        fill: COLORS.title,
+        fontFamily: FONT_FAMILY,
+        fontSize: 28,
+        fontWeight: '700',
+      },
+    });
+    this.timerText.anchor.set(0.5, 0);
+    this.timerText.scale.set(uiScale);
+    this.timerText.x = boardCenterX;
+    this.timerText.y = headerY;
+    this.addChild(this.timerText);
+
+    this.remainingText = new Text({
+      text: `Left: ${remainingElements}`,
+      style: {
+        fill: COLORS.textMuted,
+        fontFamily: FONT_FAMILY,
+        fontSize: 20,
+        fontWeight: '600',
+      },
+    });
+    this.remainingText.anchor.set(1, 0);
+    this.remainingText.scale.set(uiScale);
+    this.remainingText.x = boardRightX;
+    this.remainingText.y = headerY;
+    this.addChild(this.remainingText);
+
+    // --- Footer: Undo / Clear / Autofill, anchored to board edges ---
+    const scaledFooterHeight = footerButtonHeight * uiScale;
+    const bottomSafePadding = SCREEN_PADDING + debugReserve;
+    let footerY: number;
+    if (isPortrait) {
+      footerY = height - bottomSafePadding - scaledFooterHeight;
+      footerY = Math.max(footerY, boardBottom);
+    } else {
+      footerY =
+        footerBandTop + Math.max(0, (availableBottomHeight - scaledFooterHeight) / 2);
+    }
+
+    this.undoButton = new Button({
+      width: undoButtonWidth,
+      height: footerButtonHeight,
+      label: 'Undo',
+      color: COLORS.buttonBack,
+      onClick: () => this.callbacks.onUndoClick(),
+    });
+    this.undoButton.scale.set(uiScale);
+    this.undoButton.x = boardLeftX;
+    this.undoButton.y = footerY;
+    this.undoButton.setEnabled(false);
+    this.addChild(this.undoButton);
+
+    this.autoFillButton = new Button({
+      width: autoFillButtonWidth,
+      height: footerButtonHeight,
+      label: this.isAutoFillEnabled ? 'Auto-Fill: ON' : 'Auto-Fill: OFF',
+      color: this.isAutoFillEnabled ? COLORS.buttonEasy : COLORS.buttonBack,
+      onClick: () => this.callbacks.onAutoFillToggle(),
+    });
+    this.autoFillButton.scale.set(uiScale);
+    this.autoFillButton.x = boardRightX - autoFillButtonWidth * uiScale;
+    this.autoFillButton.y = footerY;
+    this.addChild(this.autoFillButton);
+
+    const clearButton = new Button({
+      width: clearButtonWidth,
+      height: footerButtonHeight,
+      label: 'Clear',
+      color: COLORS.buttonBack,
+      onClick: () => this.callbacks.onClearBoard(),
+    });
+    clearButton.scale.set(uiScale);
+    clearButton.x =
+      this.autoFillButton.x - clearButtonWidth * uiScale - BUTTON_GAP * uiScale;
+    clearButton.y = footerY;
+    this.addChild(clearButton);
 
     // --- DEBUG_MODE panel ---
     if (this.debugMode) {
       const solutionButtonWidth = 160;
       const newBoardButtonWidth = 140;
       const panelWidth = solutionButtonWidth + BUTTON_GAP + newBoardButtonWidth;
-      const panelX = (width - panelWidth) / 2;
-      const panelY = boardContainer.y + boardHeight + debugButtonGap;
+      const panelX = boardLeftX + Math.max(0, (boardWidth - panelWidth) / 2);
+      const panelY = height - SCREEN_PADDING - debugButtonHeight;
 
       const solutionButton = new Button({
         width: solutionButtonWidth,
