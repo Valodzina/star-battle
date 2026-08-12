@@ -369,7 +369,7 @@ export class GameplayScene extends Container implements IScene {
     this.timerText = new Text({
       text: formatTime(elapsedSeconds),
       style: {
-        fill: COLORS.title,
+        fill: COLORS.elementFill,
         fontFamily: FONT_FAMILY,
         fontSize: 28,
         fontWeight: '700',
@@ -384,7 +384,7 @@ export class GameplayScene extends Container implements IScene {
     this.remainingText = new Text({
       text: `Left: ${remainingElements}`,
       style: {
-        fill: COLORS.textMuted,
+        fill: COLORS.elementFill,
         fontFamily: FONT_FAMILY,
         fontSize: 20,
         fontWeight: '600',
@@ -525,11 +525,11 @@ export class GameplayScene extends Container implements IScene {
     swipeZone.on('pointerupoutside', handleSwipeEnd);
 
     const levelText = new Text({
-      text: `Level ${levelIndex + 1}`,
+      text: String(levelIndex + 1),
       style: {
-        fill: COLORS.title,
+        fill: COLORS.elementFill,
         fontFamily: FONT_FAMILY,
-        fontSize: 22,
+        fontSize: 32,
         fontWeight: '700',
       },
     });
@@ -540,7 +540,7 @@ export class GameplayScene extends Container implements IScene {
     navigationContainer.addChild(levelText);
 
     const arrowStyle = {
-      fill: COLORS.title,
+      fill: COLORS.elementFill,
       fontFamily: FONT_FAMILY,
       fontSize: 28,
       fontWeight: '700' as const,
@@ -1025,7 +1025,7 @@ export class GameplayScene extends Container implements IScene {
     const titleText = new Text({
       text: 'SOLVED',
       style: {
-        fill: COLORS.victoryCardTitle,
+        fill: COLORS.elementFill,
         fontFamily: FONT_FAMILY,
         fontSize: 36,
         fontWeight: '700',
@@ -1038,7 +1038,7 @@ export class GameplayScene extends Container implements IScene {
     const timeText = new Text({
       text: `Time: ${formatTime(this.lastElapsedSeconds)}`,
       style: {
-        fill: COLORS.victoryCardTime,
+        fill: COLORS.elementFill,
         fontFamily: FONT_FAMILY,
         fontSize: 20,
         fontWeight: '600',

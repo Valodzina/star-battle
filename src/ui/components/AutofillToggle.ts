@@ -4,12 +4,12 @@ import { COLORS } from '../colors';
 import { blendColor } from '../colorUtils';
 import { getStarWinTexture } from '../gameAssets';
 
-export const AUTOFILL_TOGGLE_WIDTH = 72;
-export const AUTOFILL_TOGGLE_HEIGHT = 36;
+export const AUTOFILL_TOGGLE_WIDTH = 80;
+export const AUTOFILL_TOGGLE_HEIGHT = 40;
 
-const STAR_SIZE = 24;
-const DOT_RADIUS = 2.5;
-const DOT_ORBIT = 16;
+const STAR_SIZE = 21;
+const DOT_RADIUS = 2.0;
+const DOT_ORBIT = 10;
 const ON_FILL = 0x44505c;
 const OFF_FILL = 0x9ba4b5;
 const ANIM_DURATION = 0.3;
@@ -29,8 +29,8 @@ export class AutofillToggle extends Container {
   private isActive: boolean;
   private readonly onToggle: () => void;
   private readonly background: Graphics;
+  private readonly thumb: Container;
   private readonly dotsContainer: Container;
-  private readonly star: Sprite;
   private readonly leftX: number;
   private readonly rightX: number;
   private readonly colorState = { t: 0 };
@@ -53,7 +53,7 @@ export class AutofillToggle extends Container {
     this.colorState.t = isActive ? 1 : 0;
 
     const starHalf = STAR_SIZE / 2;
-    const padding = (height - STAR_SIZE) / 2;
+    const padding = (height - STAR_SIZE) / 1.5;
     this.leftX = padding + starHalf;
     this.rightX = width - padding - starHalf;
     const centerY = height / 2;
@@ -62,30 +62,31 @@ export class AutofillToggle extends Container {
     this.drawBackground(isActive ? ON_FILL : OFF_FILL);
 
     this.dotsContainer = new Container();
-    this.dotsContainer.x = this.rightX;
-    this.dotsContainer.y = centerY;
     this.dotsContainer.alpha = isActive ? 1 : 0;
 
     const dotOffsets: Array<[number, number]> = [
-      [0, -DOT_ORBIT],
-      [0, DOT_ORBIT],
-      [-DOT_ORBIT, 0],
-      [DOT_ORBIT, 0],
+      [-DOT_ORBIT, -DOT_ORBIT],
+      [-DOT_ORBIT, DOT_ORBIT],
+      [DOT_ORBIT, -DOT_ORBIT],
+      [DOT_ORBIT, DOT_ORBIT],
     ];
     for (const [dx, dy] of dotOffsets) {
       const dot = new Graphics().circle(dx, dy, DOT_RADIUS).fill(COLORS.dotFill);
       this.dotsContainer.addChild(dot);
     }
 
-    this.star = new Sprite(getStarWinTexture());
-    this.star.anchor.set(0.5);
-    this.star.width = STAR_SIZE;
-    this.star.height = STAR_SIZE;
-    this.star.tint = COLORS.victoryStarTint;
-    this.star.x = isActive ? this.rightX : this.leftX;
-    this.star.y = centerY;
+    const star = new Sprite(getStarWinTexture());
+    star.anchor.set(0.5);
+    star.width = STAR_SIZE;
+    star.height = STAR_SIZE;
+    star.tint = COLORS.victoryStarTint;
 
-    this.addChild(this.background, this.dotsContainer, this.star);
+    this.thumb = new Container();
+    this.thumb.x = isActive ? this.rightX : this.leftX;
+    this.thumb.y = centerY;
+    this.thumb.addChild(this.dotsContainer, star);
+
+    this.addChild(this.background, this.thumb);
 
     this.eventMode = 'static';
     this.cursor = 'pointer';
@@ -121,7 +122,7 @@ export class AutofillToggle extends Container {
     const ease = ANIM_EASE;
 
     this.activeTweens = [
-      gsap.to(this.star, {
+      gsap.to(this.thumb, {
         x: active ? this.rightX : this.leftX,
         duration,
         ease,
@@ -129,6 +130,7 @@ export class AutofillToggle extends Container {
       gsap.to(this.dotsContainer, {
         alpha: active ? 1 : 0,
         duration,
+        ease,
       }),
       gsap.to(this.colorState, {
         t: active ? 1 : 0,
@@ -147,7 +149,7 @@ export class AutofillToggle extends Container {
 
   private snapToState(active: boolean): void {
     this.killTweens();
-    this.star.x = active ? this.rightX : this.leftX;
+    this.thumb.x = active ? this.rightX : this.leftX;
     this.dotsContainer.alpha = active ? 1 : 0;
     this.colorState.t = active ? 1 : 0;
     this.drawBackground(active ? ON_FILL : OFF_FILL);
