@@ -71,6 +71,7 @@ export class GameplayScene extends Container implements IScene {
   private readonly debugMode: boolean;
   // --- END DEBUG_MODE panel ---
   private readonly activeTweens = new Set<gsap.core.Tween>();
+  private readonly invalidStarTweens = new Map<string, gsap.core.Tween>();
 
   private timerText: Text | null = null;
   private remainingText: Text | null = null;
@@ -149,6 +150,7 @@ export class GameplayScene extends Container implements IScene {
     remainingElements: number,
     isVictory: boolean,
   ): void {
+    this.clearInvalidStarAnimations();
     this.boardState = boardState;
 
     if (this.remainingText && !this.remainingText.destroyed) {
@@ -169,6 +171,55 @@ export class GameplayScene extends Container implements IScene {
       this.showVictoryOverlay();
     } else {
       this.hideVictoryOverlay();
+    }
+  }
+
+  updateInvalidStars(invalidPositions: Array<{ row: number; col: number }>): void {
+    const invalidKeys = new Set(invalidPositions.map(({ row, col }) => `${row},${col}`));
+
+    for (const [key, tween] of this.invalidStarTweens) {
+      if (invalidKeys.has(key)) {
+        continue;
+      }
+
+      tween.kill();
+      this.invalidStarTweens.delete(key);
+      this.resetInvalidStarVisual(key);
+    }
+
+    for (const { row, col } of invalidPositions) {
+      const key = `${row},${col}`;
+      if (this.invalidStarTweens.has(key)) {
+        continue;
+      }
+
+      const marker = this.cellMarkers[row]?.[col];
+      if (!marker || marker.destroyed) {
+        continue;
+      }
+
+      const sprite = marker.children.find((child) => child instanceof Sprite);
+      if (!(sprite instanceof Sprite) || sprite.destroyed) {
+        continue;
+      }
+
+      // Markers are top-left anchored; pivot to cell center so scale pulses in place.
+      const half = this.currentCellSize / 2;
+      marker.pivot.set(half, half);
+      marker.position.set(col * this.currentCellSize + half, row * this.currentCellSize + half);
+      marker.scale.set(1);
+
+
+      const tween = gsap.to(marker.scale, {
+        x: 1.05,
+        y: 1.05,
+        duration: 0.22,
+        delay: 0.35,
+        repeat: -1,
+        yoyo: true,
+        ease: 'sine.inOut',
+      });
+      this.invalidStarTweens.set(key, tween);
     }
   }
 
@@ -983,6 +1034,33 @@ export class GameplayScene extends Container implements IScene {
     this.nextLevelTapHandler = null;
   }
 
+  private resetInvalidStarVisual(key: string): void {
+    const [rowStr, colStr] = key.split(',');
+    const row = Number(rowStr);
+    const col = Number(colStr);
+    const marker = this.cellMarkers[row]?.[col];
+    if (!marker || marker.destroyed) {
+      return;
+    }
+
+    marker.scale.set(1);
+    marker.pivot.set(0, 0);
+    marker.position.set(col * this.currentCellSize, row * this.currentCellSize);
+
+    const sprite = marker.children.find((child) => child instanceof Sprite);
+    if (sprite instanceof Sprite && !sprite.destroyed) {
+      sprite.tint = COLORS.elementFill;
+    }
+  }
+
+  private clearInvalidStarAnimations(): void {
+    for (const [key, tween] of this.invalidStarTweens) {
+      tween.kill();
+      this.resetInvalidStarVisual(key);
+    }
+    this.invalidStarTweens.clear();
+  }
+
   private trackTween(tween: gsap.core.Tween): void {
     this.activeTweens.add(tween);
     tween.eventCallback('onComplete', () => {
@@ -994,6 +1072,7 @@ export class GameplayScene extends Container implements IScene {
   }
 
   private killActiveTweens(): void {
+    this.clearInvalidStarAnimations();
     for (const tween of this.activeTweens) {
       tween.kill();
     }

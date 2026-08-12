@@ -152,6 +152,10 @@ export class GameView {
     this.gameplayScene?.updateGameplayBoard(boardState, remainingElements, isVictory);
   }
 
+  updateInvalidStars(invalidPositions: Array<{ row: number; col: number }>): void {
+    this.gameplayScene?.updateInvalidStars(invalidPositions);
+  }
+
   refreshLevelNavigation(): void {
     this.gameplayScene?.refreshLevelNavigation();
   }

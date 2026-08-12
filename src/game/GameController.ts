@@ -368,6 +368,7 @@ export class GameController {
       gameplay.remainingElements,
       gameplay.isVictory,
     );
+    this.view.updateInvalidStars(this.model.getInvalidStarPositions());
 
     if (gameplay.isVictory) {
       this.stopTimer();

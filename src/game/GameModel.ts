@@ -343,6 +343,95 @@ export class GameModel {
     this.applyAutoFillRules();
   }
 
+  getInvalidStarPositions(): Array<{ row: number; col: number }> {
+    const gameplay = this.state.gameplay;
+    if (!gameplay) {
+      return [];
+    }
+
+    const { size, k } = gameplay.level;
+    const boardState = gameplay.boardState;
+    const invalid = new Set<string>();
+    const mark = (row: number, col: number): void => {
+      invalid.add(`${row},${col}`);
+    };
+
+    const rowCounts = new Array<number>(size).fill(0);
+    const colCounts = new Array<number>(size).fill(0);
+    const regionCounts = new Map<number, number>();
+
+    for (let row = 0; row < size; row += 1) {
+      for (let col = 0; col < size; col += 1) {
+        const cell = boardState[row]?.[col];
+        if (!cell || cell.placed !== 'element') {
+          continue;
+        }
+
+        rowCounts[row] = (rowCounts[row] ?? 0) + 1;
+        colCounts[col] = (colCounts[col] ?? 0) + 1;
+        regionCounts.set(cell.regionId, (regionCounts.get(cell.regionId) ?? 0) + 1);
+
+        for (const [dr, dc] of MOORE_OFFSETS) {
+          const neighborRow = row + dr;
+          const neighborCol = col + dc;
+          if (
+            neighborRow < 0 ||
+            neighborRow >= size ||
+            neighborCol < 0 ||
+            neighborCol >= size
+          ) {
+            continue;
+          }
+
+          if (boardState[neighborRow]?.[neighborCol]?.placed === 'element') {
+            mark(row, col);
+            mark(neighborRow, neighborCol);
+          }
+        }
+      }
+    }
+
+    for (let row = 0; row < size; row += 1) {
+      if ((rowCounts[row] ?? 0) <= k) {
+        continue;
+      }
+      for (let col = 0; col < size; col += 1) {
+        if (boardState[row]?.[col]?.placed === 'element') {
+          mark(row, col);
+        }
+      }
+    }
+
+    for (let col = 0; col < size; col += 1) {
+      if ((colCounts[col] ?? 0) <= k) {
+        continue;
+      }
+      for (let row = 0; row < size; row += 1) {
+        if (boardState[row]?.[col]?.placed === 'element') {
+          mark(row, col);
+        }
+      }
+    }
+
+    for (const [regionId, count] of regionCounts) {
+      if (count <= k) {
+        continue;
+      }
+      for (const boardRow of boardState) {
+        for (const cell of boardRow) {
+          if (cell.regionId === regionId && cell.placed === 'element') {
+            mark(cell.row, cell.col);
+          }
+        }
+      }
+    }
+
+    return Array.from(invalid, (key) => {
+      const [rowStr, colStr] = key.split(',');
+      return { row: Number(rowStr), col: Number(colStr) };
+    });
+  }
+
   applyAutoFillRules(): void {
     const gameplay = this.state.gameplay;
     if (!gameplay) {
