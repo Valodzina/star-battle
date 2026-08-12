@@ -16,8 +16,19 @@ import {
   SCREEN_PADDING,
 } from '../constants';
 import { Button } from '../components/Button';
+import {
+  AutofillToggle,
+  AUTOFILL_TOGGLE_HEIGHT,
+  AUTOFILL_TOGGLE_WIDTH,
+} from '../components/AutofillToggle';
 import type { IScene } from './IScene';
-import { getStarTexture, getStarWinTexture } from '../gameAssets';
+import {
+  getBackTexture,
+  getBinTexture,
+  getStarTexture,
+  getStarWinTexture,
+  getUndoTexture,
+} from '../gameAssets';
 
 const VICTORY_CARD_WIDTH = 280;
 const VICTORY_CARD_HEIGHT = 320;
@@ -25,6 +36,9 @@ const VICTORY_CARD_RADIUS = 16;
 const VICTORY_STAR_SIZE = 96;
 const VICTORY_BUTTON_WIDTH = 200;
 const VICTORY_BUTTON_HEIGHT = 44;
+const ICON_BUTTON_SIZE = 40;
+const ACTIVE_TINT = 0x44505c;
+const INACTIVE_TINT = 0x9ba4b5;
 
 const LEVEL_ID_PATTERN = /^(easy|medium|hard)_(\d+)$/;
 
@@ -83,8 +97,8 @@ export class GameplayScene extends Container implements IScene {
 
   private timerText: Text | null = null;
   private remainingText: Text | null = null;
-  private undoButton: Button | null = null;
-  private autoFillButton: Button | null = null;
+  private undoButton: Sprite | null = null;
+  private autoFillButton: AutofillToggle | null = null;
   private isAutoFillEnabled: boolean;
   private cellMarkers: Container[][] = [];
   private victoryOverlay: Container | null = null;
@@ -150,7 +164,9 @@ export class GameplayScene extends Container implements IScene {
   }
 
   setUndoEnabled(enabled: boolean): void {
-    this.undoButton?.setEnabled(enabled);
+    if (this.undoButton && !this.undoButton.destroyed) {
+      this.setButtonEnabled(this.undoButton, enabled);
+    }
   }
 
   setAutoFillEnabled(enabled: boolean): void {
@@ -316,11 +332,9 @@ export class GameplayScene extends Container implements IScene {
 
     // --- Shared chrome scale (narrow portrait / short landscape) ---
     const isPortrait = height > width;
-    const undoButtonWidth = 80;
-    const clearButtonWidth = 90;
-    const autoFillButtonWidth = 150;
+    const autoFillButtonWidth = AUTOFILL_TOGGLE_WIDTH;
     const footerContentWidth =
-      undoButtonWidth + BUTTON_GAP + clearButtonWidth + BUTTON_GAP + autoFillButtonWidth;
+      ICON_BUTTON_SIZE + BUTTON_GAP + ICON_BUTTON_SIZE + BUTTON_GAP + autoFillButtonWidth;
 
     const availableTopHeight = Math.max(0, levelNavTop - SCREEN_PADDING);
     const footerBandTop = boardBottom;
@@ -334,22 +348,22 @@ export class GameplayScene extends Container implements IScene {
       availableBottomHeight / footerButtonHeight,
     );
     const uiScale = Math.min(widthScale, heightScale);
+    const iconDisplaySize = ICON_BUTTON_SIZE * uiScale;
+    const iconHalfDisplay = iconDisplaySize / 2;
 
     // --- Header: Back / Timer / Remaining, anchored to board edges ---
     const scaledHeaderHeight = headerButtonHeight * uiScale;
     const headerY =
       SCREEN_PADDING + Math.max(0, (availableTopHeight - scaledHeaderHeight) / 2);
 
-    const backButton = new Button({
-      width: 140,
-      height: headerButtonHeight,
-      label: 'Back to Levels',
-      color: COLORS.buttonBack,
-      onClick: () => this.callbacks.onBackToLevels(),
-    });
-    backButton.scale.set(uiScale);
-    backButton.x = boardLeftX;
-    backButton.y = headerY;
+    const backButton = new Sprite(getBackTexture());
+    backButton.anchor.set(0.5);
+    backButton.width = iconDisplaySize;
+    backButton.height = iconDisplaySize;
+    backButton.x = boardLeftX + iconHalfDisplay;
+    backButton.y = headerY + scaledHeaderHeight / 2;
+    backButton.on('pointertap', () => this.callbacks.onBackToLevels());
+    this.setButtonEnabled(backButton, true);
     this.addChild(backButton);
 
     this.timerText = new Text({
@@ -393,43 +407,35 @@ export class GameplayScene extends Container implements IScene {
       footerY =
         footerBandTop + Math.max(0, (availableBottomHeight - scaledFooterHeight) / 2);
     }
+    const footerCenterY = footerY + scaledFooterHeight / 2;
 
-    this.undoButton = new Button({
-      width: undoButtonWidth,
-      height: footerButtonHeight,
-      label: 'Undo',
-      color: COLORS.buttonBack,
-      onClick: () => this.callbacks.onUndoClick(),
-    });
-    this.undoButton.scale.set(uiScale);
-    this.undoButton.x = boardLeftX;
-    this.undoButton.y = footerY;
-    this.undoButton.setEnabled(false);
+    this.undoButton = new Sprite(getUndoTexture());
+    this.undoButton.anchor.set(0.5);
+    this.undoButton.width = iconDisplaySize;
+    this.undoButton.height = iconDisplaySize;
+    this.undoButton.x = boardLeftX + iconHalfDisplay;
+    this.undoButton.y = footerCenterY;
+    this.undoButton.on('pointertap', () => this.callbacks.onUndoClick());
+    this.setButtonEnabled(this.undoButton, false);
     this.addChild(this.undoButton);
 
-    this.autoFillButton = new Button({
-      width: autoFillButtonWidth,
-      height: footerButtonHeight,
-      label: this.isAutoFillEnabled ? 'Auto-Fill: ON' : 'Auto-Fill: OFF',
-      color: this.isAutoFillEnabled ? COLORS.buttonEasy : COLORS.buttonBack,
-      onClick: () => this.callbacks.onAutoFillToggle(),
+    this.autoFillButton = new AutofillToggle({
+      isActive: this.isAutoFillEnabled,
+      onToggle: () => this.callbacks.onAutoFillToggle(),
     });
     this.autoFillButton.scale.set(uiScale);
     this.autoFillButton.x = boardRightX - autoFillButtonWidth * uiScale;
-    this.autoFillButton.y = footerY;
+    this.autoFillButton.y = footerCenterY - (AUTOFILL_TOGGLE_HEIGHT * uiScale) / 2;
     this.addChild(this.autoFillButton);
 
-    const clearButton = new Button({
-      width: clearButtonWidth,
-      height: footerButtonHeight,
-      label: 'Clear',
-      color: COLORS.buttonBack,
-      onClick: () => this.callbacks.onClearBoard(),
-    });
-    clearButton.scale.set(uiScale);
-    clearButton.x =
-      this.autoFillButton.x - clearButtonWidth * uiScale - BUTTON_GAP * uiScale;
-    clearButton.y = footerY;
+    const clearButton = new Sprite(getBinTexture());
+    clearButton.anchor.set(0.5);
+    clearButton.width = iconDisplaySize;
+    clearButton.height = iconDisplaySize;
+    clearButton.x = this.autoFillButton.x - BUTTON_GAP * uiScale - iconHalfDisplay;
+    clearButton.y = footerCenterY;
+    clearButton.on('pointertap', () => this.callbacks.onClearBoard());
+    this.setButtonEnabled(clearButton, true);
     this.addChild(clearButton);
 
     // --- DEBUG_MODE panel ---
@@ -1121,8 +1127,13 @@ export class GameplayScene extends Container implements IScene {
       return;
     }
 
-    this.autoFillButton.setLabel(this.isAutoFillEnabled ? 'Auto-Fill: ON' : 'Auto-Fill: OFF');
-    this.autoFillButton.setColor(this.isAutoFillEnabled ? COLORS.buttonEasy : COLORS.buttonBack);
+    this.autoFillButton.setActive(this.isAutoFillEnabled);
+  }
+
+  private setButtonEnabled(buttonSprite: Sprite, isEnabled: boolean): void {
+    buttonSprite.tint = isEnabled ? ACTIVE_TINT : INACTIVE_TINT;
+    buttonSprite.eventMode = isEnabled ? 'static' : 'none';
+    buttonSprite.cursor = isEnabled ? 'pointer' : 'default';
   }
 
   private clearRefs(): void {
