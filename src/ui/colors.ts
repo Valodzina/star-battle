@@ -1,5 +1,5 @@
 export const COLORS = {
-  background: 0x1a1a2e,
+  background: 0xb0b9c2,
   buttonEasy: 0x2d6a4f,
   buttonMedium: 0x1d3557,
   buttonHard: 0x7b2d26,
