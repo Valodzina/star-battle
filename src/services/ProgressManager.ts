@@ -1,3 +1,4 @@
+import type { Difficulty } from '../types/level';
 import type { LevelManager } from './LevelManager';
 
 const STORAGE_KEY = 'star_battle_progress';
@@ -70,6 +71,12 @@ export class ProgressManager {
 
   isCompleted(levelId: string): boolean {
     return this.state.completedLevels.includes(levelId);
+  }
+
+  getCompletedCount(difficulty: Difficulty): number {
+    return this.levelManager
+      .getAllLevels(difficulty)
+      .filter((level) => this.state.completedLevels.includes(level.id)).length;
   }
 
   markCompleted(levelId: string): void {

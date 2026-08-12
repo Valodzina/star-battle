@@ -82,7 +82,7 @@ export class GameView {
     const { width, height } = this.app.screen;
 
     if (state.screen === 'mainMenu') {
-      const scene = new MainMenuScene({
+      const scene = new MainMenuScene(this.levelManager, this.progressManager, {
         onDifficultySelected: (difficulty) => this.callbacks.onDifficultySelected(difficulty),
       });
       this.mountScene(scene, width, height);

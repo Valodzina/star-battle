@@ -1,6 +1,8 @@
 import { Container, Text } from 'pixi.js';
 import type { Difficulty } from '../../types/level';
 import { DIFFICULTY_META } from '../../types/level';
+import type { LevelManager } from '../../services/LevelManager';
+import type { ProgressManager } from '../../services/ProgressManager';
 import { COLORS } from '../colors';
 import { BUTTON_GAP, FONT_FAMILY, SCREEN_PADDING } from '../constants';
 import { Button } from '../components/Button';
@@ -11,10 +13,18 @@ export interface MainMenuSceneCallbacks {
 }
 
 export class MainMenuScene extends Container implements IScene {
+  private readonly levelManager: LevelManager;
+  private readonly progressManager: ProgressManager;
   private readonly callbacks: MainMenuSceneCallbacks;
 
-  constructor(callbacks: MainMenuSceneCallbacks) {
+  constructor(
+    levelManager: LevelManager,
+    progressManager: ProgressManager,
+    callbacks: MainMenuSceneCallbacks,
+  ) {
     super();
+    this.levelManager = levelManager;
+    this.progressManager = progressManager;
     this.callbacks = callbacks;
     this.visible = false;
   }
@@ -61,6 +71,10 @@ export class MainMenuScene extends Container implements IScene {
         label: meta.label,
         subtitle: meta.subtitle,
         color: meta.color,
+        progress: {
+          completed: this.progressManager.getCompletedCount(meta.difficulty),
+          total: this.levelManager.getLevelCount(meta.difficulty),
+        },
         onClick: () => this.callbacks.onDifficultySelected(meta.difficulty),
       });
       button.y = index * (buttonHeight + BUTTON_GAP);
