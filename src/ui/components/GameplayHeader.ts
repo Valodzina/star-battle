@@ -1,12 +1,8 @@
-import { Container, FederatedPointerEvent, Graphics, Rectangle, Text, Sprite } from 'pixi.js';
+import { Container, Text, Sprite } from 'pixi.js';
 import { COLORS } from '../colors';
-import {
-  FONT_FAMILY,
-  LEVEL_NAV_GAP,
-  LEVEL_NAV_HEIGHT,
-  LEVEL_NAV_SWIPE_THRESHOLD,
-} from '../constants';
+import { FONT_FAMILY, LEVEL_NAV_GAP, LEVEL_NAV_HEIGHT } from '../constants';
 import { getBackTexture } from '../gameAssets';
+import { LevelNavigation } from './LevelNavigation';
 
 const ICON_BUTTON_SIZE = 40;
 const HEADER_BUTTON_HEIGHT = 40;
@@ -28,17 +24,7 @@ export class GameplayHeader extends Container {
   private readonly backButton: Sprite;
   private readonly timerText: Text;
   private readonly remainingText: Text;
-  private readonly levelNavContainer = new Container();
-  private readonly swipeZone: Graphics;
-  private readonly levelText: Text;
-  private readonly leftArrow: Text;
-  private readonly rightArrow: Text;
-  private readonly onPrevLevel: () => void;
-  private readonly onNextLevel: () => void;
-  private readonly nextLevelTapHandler: (event: FederatedPointerEvent) => void;
-
-  private hasPreviousLevel: boolean;
-  private hasNextLevel: boolean;
+  private readonly levelNavigation: LevelNavigation;
 
   constructor(options: GameplayHeaderOptions) {
     super();
@@ -54,11 +40,6 @@ export class GameplayHeader extends Container {
       onPrevLevel,
       onNextLevel,
     } = options;
-
-    this.onPrevLevel = onPrevLevel;
-    this.onNextLevel = onNextLevel;
-    this.hasPreviousLevel = hasPreviousLevel;
-    this.hasNextLevel = hasNextLevel;
 
     this.backButton = new Sprite(getBackTexture());
     this.backButton.anchor.set(0.5);
@@ -91,92 +72,21 @@ export class GameplayHeader extends Container {
     });
     this.remainingText.anchor.set(1, 0);
 
-    this.swipeZone = new Graphics();
-    this.swipeZone
-      .rect(0, 0, logicalBoardWidth, LEVEL_NAV_HEIGHT)
-      .fill({ color: 0xffffff, alpha: 0.3 });
-    this.swipeZone.eventMode = 'static';
-    this.swipeZone.cursor = 'pointer';
-    this.swipeZone.hitArea = new Rectangle(0, 0, logicalBoardWidth, LEVEL_NAV_HEIGHT);
-
-    let swipeStartX: number | null = null;
-
-    this.swipeZone.on('pointerdown', (event: FederatedPointerEvent) => {
-      swipeStartX = event.global.x;
+    this.levelNavigation = new LevelNavigation({
+      levelNumber,
+      logicalBoardWidth,
+      hasPreviousLevel,
+      hasNextLevel,
+      onPrevClick: () => onPrevLevel(),
+      onNextClick: () => onNextLevel(),
     });
-
-    const handleSwipeEnd = (event: FederatedPointerEvent) => {
-      if (swipeStartX === null) {
-        return;
-      }
-
-      const deltaX = event.global.x - swipeStartX;
-      swipeStartX = null;
-
-      if (deltaX > LEVEL_NAV_SWIPE_THRESHOLD && this.hasPreviousLevel) {
-        this.onPrevLevel();
-      } else if (deltaX < -LEVEL_NAV_SWIPE_THRESHOLD && this.hasNextLevel) {
-        this.onNextLevel();
-      }
-    };
-
-    this.swipeZone.on('pointerup', handleSwipeEnd);
-    this.swipeZone.on('pointerupoutside', handleSwipeEnd);
-
-    this.levelText = new Text({
-      text: String(levelNumber),
-      style: {
-        fill: COLORS.elementFill,
-        fontFamily: FONT_FAMILY,
-        fontSize: 32,
-        fontWeight: '700',
-      },
-    });
-    this.levelText.anchor.set(0.5);
-    this.levelText.x = logicalBoardWidth / 2;
-    this.levelText.y = LEVEL_NAV_HEIGHT / 2;
-    this.levelText.eventMode = 'none';
-
-    const arrowStyle = {
-      fill: COLORS.elementFill,
-      fontFamily: FONT_FAMILY,
-      fontSize: 28,
-      fontWeight: '700' as const,
-    };
-
-    this.leftArrow = new Text({ text: '<', style: arrowStyle });
-    this.leftArrow.anchor.set(0.5);
-    this.leftArrow.x = 28;
-    this.leftArrow.y = LEVEL_NAV_HEIGHT / 2;
-    this.leftArrow.on('pointertap', (event: FederatedPointerEvent) => {
-      event.stopPropagation();
-      this.onPrevLevel();
-    });
-
-    this.rightArrow = new Text({ text: '>', style: arrowStyle });
-    this.rightArrow.anchor.set(0.5);
-    this.rightArrow.x = logicalBoardWidth - 28;
-    this.rightArrow.y = LEVEL_NAV_HEIGHT / 2;
-    this.nextLevelTapHandler = (event: FederatedPointerEvent) => {
-      event.stopPropagation();
-      this.onNextLevel();
-    };
-
-    this.levelNavContainer.addChild(
-      this.swipeZone,
-      this.levelText,
-      this.leftArrow,
-      this.rightArrow,
-    );
 
     this.addChild(
       this.backButton,
       this.timerText,
       this.remainingText,
-      this.levelNavContainer,
+      this.levelNavigation,
     );
-
-    this.setLevelNavEnabled(hasPreviousLevel, hasNextLevel);
   }
 
   updateTimer(timeString: string): void {
@@ -188,35 +98,12 @@ export class GameplayHeader extends Container {
   }
 
   updateLevelNumber(level: number): void {
-    this.levelText.text = String(level);
+    this.levelNavigation.updateLevel(level);
   }
 
   setLevelNavEnabled(hasPrevious: boolean, hasNext: boolean): void {
-    this.hasPreviousLevel = hasPrevious;
-    this.hasNextLevel = hasNext;
-
-    if (hasPrevious) {
-      this.leftArrow.alpha = 1;
-      this.leftArrow.eventMode = 'static';
-      this.leftArrow.cursor = 'pointer';
-    } else {
-      this.leftArrow.alpha = 0.5;
-      this.leftArrow.eventMode = 'none';
-      this.leftArrow.cursor = 'default';
-    }
-
-    this.rightArrow.off('pointertap', this.nextLevelTapHandler);
-
-    if (hasNext) {
-      this.rightArrow.alpha = 1;
-      this.rightArrow.eventMode = 'static';
-      this.rightArrow.cursor = 'pointer';
-      this.rightArrow.on('pointertap', this.nextLevelTapHandler);
-    } else {
-      this.rightArrow.alpha = 0.5;
-      this.rightArrow.eventMode = 'none';
-      this.rightArrow.cursor = 'default';
-    }
+    this.levelNavigation.setPrevEnabled(hasPrevious);
+    this.levelNavigation.setNextEnabled(hasNext);
   }
 
   layout(boardLeftX: number, boardRightX: number, uiScale: number, headerY: number): void {
@@ -240,8 +127,8 @@ export class GameplayHeader extends Container {
   }
 
   layoutLevelNav(boardLeftX: number, boardTopY: number, boardScale: number): void {
-    this.levelNavContainer.scale.set(boardScale);
-    this.levelNavContainer.position.set(
+    this.levelNavigation.scale.set(boardScale);
+    this.levelNavigation.position.set(
       boardLeftX,
       boardTopY - LEVEL_NAV_GAP - LEVEL_NAV_HEIGHT * boardScale,
     );

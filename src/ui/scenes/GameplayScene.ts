@@ -1,32 +1,22 @@
-import { Container, Graphics, Text, Sprite } from 'pixi.js';
-import gsap from 'gsap';
+import { Container } from 'pixi.js';
 import type { CellState, GameplayState } from '../../types/level';
 import type { ProgressManager } from '../../services/ProgressManager';
-import { COLORS } from '../colors';
 import {
-  FONT_FAMILY,
   GAMEPLAY_FOOTER_HEIGHT,
   GAMEPLAY_HEADER_HEIGHT,
   LEVEL_NAV_GAP,
   LEVEL_NAV_HEIGHT,
   SCREEN_PADDING,
 } from '../constants';
-import { Button } from '../components/Button';
 import { GameBoard } from '../components/GameBoard';
 import { GameplayHeader } from '../components/GameplayHeader';
 import {
   GAMEPLAY_FOOTER_CONTENT_WIDTH,
   GameplayFooter,
 } from '../components/GameplayFooter';
+import { VictoryOverlay } from '../components/VictoryOverlay';
 import type { IScene } from './IScene';
-import { getStarWinTexture } from '../gameAssets';
 
-const VICTORY_CARD_WIDTH = 280;
-const VICTORY_CARD_HEIGHT = 320;
-const VICTORY_CARD_RADIUS = 16;
-const VICTORY_STAR_SIZE = 96;
-const VICTORY_BUTTON_WIDTH = 200;
-const VICTORY_BUTTON_HEIGHT = 44;
 const BASE_CELL_SIZE = 64;
 const HEADER_BUTTON_HEIGHT = 40;
 const FOOTER_BUTTON_HEIGHT = 40;
@@ -76,7 +66,6 @@ export class GameplayScene extends Container implements IScene {
   private readonly gameplay: GameplayState;
   private readonly callbacks: GameplaySceneCallbacks;
   private readonly progressManager: ProgressManager;
-  private readonly activeTweens = new Set<gsap.core.Tween>();
 
   private currentWidth = 0;
   private currentHeight = 0;
@@ -85,10 +74,7 @@ export class GameplayScene extends Container implements IScene {
   private gameBoard!: GameBoard;
   private header!: GameplayHeader;
   private footer!: GameplayFooter;
-  private victoryOverlay!: Container;
-  private victoryCardContainer!: Container;
-  private victoryTimeText!: Text;
-  private victoryNextButton!: Button;
+  private victoryOverlay!: VictoryOverlay;
 
   private isAutoFillEnabled: boolean;
   private lastElapsedSeconds = 0;
@@ -116,7 +102,7 @@ export class GameplayScene extends Container implements IScene {
   }
 
   hide(): void {
-    this.killActiveTweens();
+    this.victoryOverlay.hide();
     this.gameBoard.clearAnimations();
     this.visible = false;
   }
@@ -197,7 +183,7 @@ export class GameplayScene extends Container implements IScene {
     this.header.layoutLevelNav(boardLeftX, this.gameBoard.y, boardScale);
     this.footer.layout(boardLeftX, boardRightX, uiScale, footerCenterY);
 
-    this.victoryCardContainer.position.set(this.currentWidth / 2, this.currentHeight / 2);
+    this.victoryOverlay.position.set(this.currentWidth / 2, this.currentHeight / 2);
 
     if (isVictory) {
       this.showVictoryOverlay();
@@ -229,7 +215,7 @@ export class GameplayScene extends Container implements IScene {
     if (isVictory) {
       this.showVictoryOverlay();
     } else {
-      this.hideVictoryOverlay();
+      this.victoryOverlay.hide();
     }
   }
 
@@ -280,8 +266,7 @@ export class GameplayScene extends Container implements IScene {
       onAutofillToggled: () => this.callbacks.onAutoFillToggle(),
     });
 
-    this.victoryOverlay = this.createVictoryOverlay();
-    this.victoryOverlay.visible = false;
+    this.victoryOverlay = new VictoryOverlay();
 
     this.addChild(this.header, this.gameBoard, this.footer, this.victoryOverlay);
   }
@@ -294,134 +279,23 @@ export class GameplayScene extends Container implements IScene {
       nextLevelId !== null &&
       this.progressManager.isUnlocked(nextLevelId);
     this.header.setLevelNavEnabled(this.hasPreviousLevel, this.hasNextLevel);
-    this.applyVictoryNextButtonState();
+
+    if (this.victoryOverlay.visible) {
+      this.showVictoryOverlay();
+    }
   }
 
-  private createVictoryOverlay(): Container {
-    const overlay = new Container();
-    overlay.eventMode = 'passive';
-
-    const cardContainer = new Container();
-    cardContainer.pivot.set(VICTORY_CARD_WIDTH / 2, VICTORY_CARD_HEIGHT / 2);
-    cardContainer.scale.set(0);
-    cardContainer.eventMode = 'static';
-
-    const shadow = new Graphics();
-    shadow
-      .roundRect(4, 6, VICTORY_CARD_WIDTH, VICTORY_CARD_HEIGHT, VICTORY_CARD_RADIUS)
-      .fill({ color: COLORS.victoryCardShadow, alpha: 0.22 });
-
-    const background = new Graphics();
-    background
-      .roundRect(0, 0, VICTORY_CARD_WIDTH, VICTORY_CARD_HEIGHT, VICTORY_CARD_RADIUS)
-      .fill(COLORS.victoryCard);
-
-    const titleText = new Text({
-      text: 'SOLVED',
-      style: {
-        fill: COLORS.elementFill,
-        fontFamily: FONT_FAMILY,
-        fontSize: 36,
-        fontWeight: '700',
-      },
-    });
-    titleText.anchor.set(0.5, 0);
-    titleText.x = VICTORY_CARD_WIDTH / 2;
-    titleText.y = 28;
-
-    const timeText = new Text({
-      text: `Time: ${formatTime(this.lastElapsedSeconds)}`,
-      style: {
-        fill: COLORS.elementFill,
-        fontFamily: FONT_FAMILY,
-        fontSize: 20,
-        fontWeight: '600',
-      },
-    });
-    timeText.anchor.set(0.5, 0);
-    timeText.x = VICTORY_CARD_WIDTH / 2;
-    timeText.y = 78;
-    this.victoryTimeText = timeText;
-
-    const starSprite = new Sprite(getStarWinTexture());
-    starSprite.anchor.set(0.5);
-    starSprite.width = VICTORY_STAR_SIZE;
-    starSprite.height = VICTORY_STAR_SIZE;
-    starSprite.x = VICTORY_CARD_WIDTH / 2;
-    starSprite.y = 170;
-    starSprite.tint = COLORS.victoryStarTint;
-
-    const nextButton = new Button({
-      width: VICTORY_BUTTON_WIDTH,
-      height: VICTORY_BUTTON_HEIGHT,
-      label: this.hasNextLevel ? 'Next Level' : 'Level Select',
-      color: COLORS.menuButtonColorEasy,
-      onClick: () => {
+  private showVictoryOverlay(): void {
+    this.victoryOverlay.show(
+      `Time: ${formatTime(this.lastElapsedSeconds)}`,
+      this.hasNextLevel,
+      () => {
         if (this.hasNextLevel) {
           this.callbacks.onNextLevel();
         } else {
           this.callbacks.onBackToLevels();
         }
       },
-    });
-    nextButton.x = (VICTORY_CARD_WIDTH - VICTORY_BUTTON_WIDTH) / 2;
-    nextButton.y = VICTORY_CARD_HEIGHT - VICTORY_BUTTON_HEIGHT - 28;
-    this.victoryNextButton = nextButton;
-
-    cardContainer.addChild(shadow, background, titleText, timeText, starSprite, nextButton);
-    this.victoryCardContainer = cardContainer;
-    overlay.addChild(cardContainer);
-
-    return overlay;
-  }
-
-  private applyVictoryNextButtonState(): void {
-    this.victoryNextButton.setLabel(this.hasNextLevel ? 'Next Level' : 'Level Select');
-  }
-
-  private showVictoryOverlay(): void {
-    if (this.victoryOverlay.visible) {
-      return;
-    }
-
-    this.victoryTimeText.text = `Time: ${formatTime(this.lastElapsedSeconds)}`;
-    this.applyVictoryNextButtonState();
-
-    this.victoryOverlay.visible = true;
-    this.victoryCardContainer.scale.set(0);
-
-    const scaleTween = gsap.to(this.victoryCardContainer.scale, {
-      x: 1,
-      y: 1,
-      duration: 0.5,
-      ease: 'back.out(1.5)',
-    });
-    this.trackTween(scaleTween);
-  }
-
-  private hideVictoryOverlay(): void {
-    if (!this.victoryOverlay.visible) {
-      return;
-    }
-
-    this.victoryOverlay.visible = false;
-    this.victoryCardContainer.scale.set(0);
-  }
-
-  private trackTween(tween: gsap.core.Tween): void {
-    this.activeTweens.add(tween);
-    tween.eventCallback('onComplete', () => {
-      this.activeTweens.delete(tween);
-    });
-    tween.eventCallback('onInterrupt', () => {
-      this.activeTweens.delete(tween);
-    });
-  }
-
-  private killActiveTweens(): void {
-    for (const tween of this.activeTweens) {
-      tween.kill();
-    }
-    this.activeTweens.clear();
+    );
   }
 }
