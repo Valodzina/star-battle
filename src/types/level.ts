@@ -43,19 +43,19 @@ export const DIFFICULTY_META: readonly DifficultyMeta[] = [
   {
     difficulty: 'easy',
     label: 'Easy',
-    subtitle: '6×6 · K=1',
+    subtitle: '6×6',
     color: COLORS.buttonEasy,
   },
   {
     difficulty: 'medium',
     label: 'Medium',
-    subtitle: '10×10 · K=1',
+    subtitle: '10×10',
     color: COLORS.buttonMedium,
   },
   {
     difficulty: 'hard',
     label: 'Hard',
-    subtitle: '10×10 · K=2',
+    subtitle: '10×10 · 2 stars',
     color: COLORS.buttonHard,
   },
 ];
