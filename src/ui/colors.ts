@@ -15,16 +15,19 @@ export const COLORS = {
 
 
 
-  levelSelectHeader: 0xc4cacf,
-  levelSelectHeaderEasy: 0x6F9369,
-  levelSelectHeaderMedium: 0x6090A8,
-  levelSelectHeaderHard: 0x806F9D,
+  levelSelectHeaderEasy: 0x789D72,
+  levelSelectHeaderMedium: 0x6E9FB8,
+  levelSelectHeaderHard: 0x907FAF,
+
+  // levelSelectHeaderEasy: 0x6F9369,
+  // levelSelectHeaderMedium: 0x6090A8,
+  // levelSelectHeaderHard: 0x806F9D,
 
 
   levelButton:      0xC4CACF,
   levelButtonHover: 0xD4D9DD,
 
-  levelButtonLocked:0xAEB7BE,
+  levelButtonLocked:0x969FA8,
 
   // Level number
   levelNumber:      0x2D3740,

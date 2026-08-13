@@ -21,7 +21,7 @@ const DEFAULT_TILE_HEIGHT = 120;
 /** Minimum width for a 3-column grid; wider screens use more columns at scale 1. */
 const MIN_LAYOUT_WIDTH =
   SCREEN_PADDING * 2 + DEFAULT_TILE_WIDTH * 3 + TILE_GAP * 2;
-const ICON_BUTTON_SIZE = 40;
+const ICON_BUTTON_SIZE = 30;
 const PADDING = TILE_GAP;
 const HEADER_OFFSET = 72;
 const OVERSCROLL_FRICTION = 0.3;
@@ -113,9 +113,16 @@ export class LevelSelectScene extends Container implements IScene {
 
     this.contentTop = SCREEN_PADDING + HEADER_OFFSET;
 
+    const headerColor =
+      this.difficulty === 'easy'
+        ? COLORS.levelSelectHeaderEasy
+        : this.difficulty === 'medium'
+          ? COLORS.levelSelectHeaderMedium
+          : COLORS.levelSelectHeaderHard;
+
     const headerBackground = new Graphics()
       .rect(0, 0, layoutWidth, this.contentTop)
-      .fill(COLORS.levelSelectHeader);
+      .fill(headerColor);
     headerContainer.addChild(headerBackground);
 
     const backButton = new Sprite(getBackTexture());

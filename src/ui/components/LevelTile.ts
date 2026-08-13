@@ -20,8 +20,8 @@ export class LevelTile extends Container {
 
     const { size, label, state, onClick } = options;
     const background = new Graphics();
-    const labelY = size * 0.38;
-    const iconSize = size * 0.28;
+    const labelY = size * 0.30;
+    const iconSize = size * 0.35;
 
     const drawBackground = (fillColor: number): void => {
       if (background.destroyed) {
@@ -41,7 +41,7 @@ export class LevelTile extends Container {
       icon.height = iconSize;
       icon.tint = tint;
       icon.x = size / 2;
-      icon.y = labelY + iconSize * 0.85;
+      icon.y = size*0.7;
 
       this.stateIcon = icon;
       this.addChild(icon);
@@ -50,15 +50,15 @@ export class LevelTile extends Container {
     this.on('destroy', () => this.clearStateIcon());
 
     if (state === 'locked') {
-      drawBackground(COLORS.levelTileLocked);
+      drawBackground(COLORS.levelButtonLocked);
       this.addChild(background);
 
       const labelText = new Text({
         text: label,
         style: {
-          fill: COLORS.textMuted,
+          fill: COLORS.levelNumberLocked,
           fontFamily: INTER_SEMIBOLD_FONT_FAMILY,
-          fontSize: Math.max(20, Math.floor(size * 0.25)),
+          fontSize: Math.max(20, Math.floor(size * 0.35)),
           fontWeight: '600',
         },
       });
@@ -67,20 +67,20 @@ export class LevelTile extends Container {
       labelText.y = labelY;
 
       this.addChild(labelText);
-      setStateIcon(getLockTexture(), COLORS.textMuted);
+      setStateIcon(getLockTexture(), COLORS.lock);
       this.eventMode = 'none';
       this.cursor = 'default';
       return;
     }
 
-    drawBackground(COLORS.levelTile);
+    drawBackground(COLORS.levelButton);
 
     const labelText = new Text({
       text: label,
       style: {
-        fill: COLORS.text,
+        fill: COLORS.levelNumber,
         fontFamily: INTER_SEMIBOLD_FONT_FAMILY,
-        fontSize: Math.max(20, Math.floor(size * 0.25)),
+        fontSize: Math.max(20, Math.floor(size * 0.35)),
         fontWeight: '600',
       },
     });
@@ -91,17 +91,17 @@ export class LevelTile extends Container {
     this.addChild(background, labelText);
 
     if (state === 'completed') {
-      setStateIcon(getStarWinTexture(), COLORS.victoryStarTint);
+      setStateIcon(getStarWinTexture(), COLORS.starFilled);
     } else {
-      setStateIcon(getStarTexture(), COLORS.elementFill);
+      setStateIcon(getStarTexture(), COLORS.starOutline);
     }
 
     this.eventMode = 'static';
     this.cursor = 'pointer';
     this.hitArea = new Rectangle(0, 0, size, size);
 
-    this.on('pointerover', () => drawBackground(COLORS.levelTileHover));
-    this.on('pointerout', () => drawBackground(COLORS.levelTile));
+    this.on('pointerover', () => drawBackground(COLORS.levelButtonHover));
+    this.on('pointerout', () => drawBackground(COLORS.levelButton));
     this.on('pointertap', onClick);
   }
 
