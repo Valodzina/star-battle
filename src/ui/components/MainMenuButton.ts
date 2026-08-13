@@ -7,7 +7,7 @@ const PROGRESS_STAR_SIZE = 17;
 const ICON_STAR_SIZE = 37;
 const BAR_WIDTH = 90;
 const BAR_HEIGHT = 8;
-const BAR_TRACK_COLOR = 0xa4aab4;
+
 const CORNER_RADIUS = 12;
 
 export interface MainMenuButtonOptions {
@@ -141,7 +141,7 @@ export class MainMenuButton extends Container {
     const barY = progressY + 22;
 
     const barTrack = new Graphics();
-    barTrack.roundRect(barX, barY, BAR_WIDTH, BAR_HEIGHT, barRadius).fill(BAR_TRACK_COLOR);
+    barTrack.roundRect(barX, barY, BAR_WIDTH, BAR_HEIGHT, barRadius).fill(COLORS.menuButtonBarTrackColor);
     this.addChild(barTrack);
 
     if (fillWidth > 0) {

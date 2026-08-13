@@ -1,6 +1,6 @@
 import { Container, Graphics, Rectangle, Sprite, Text, type Texture } from 'pixi.js';
 import { COLORS } from '../colors';
-import { FONT_FAMILY } from '../constants';
+import { INTER_SEMIBOLD_FONT_FAMILY } from '../constants';
 import { getLockTexture, getStarTexture, getStarWinTexture } from '../gameAssets';
 
 export type LevelTileState = 'locked' | 'unlocked' | 'completed';
@@ -50,14 +50,14 @@ export class LevelTile extends Container {
     this.on('destroy', () => this.clearStateIcon());
 
     if (state === 'locked') {
-      drawBackground(COLORS.tileLocked);
+      drawBackground(COLORS.levelTileLocked);
       this.addChild(background);
 
       const labelText = new Text({
         text: label,
         style: {
           fill: COLORS.textMuted,
-          fontFamily: FONT_FAMILY,
+          fontFamily: INTER_SEMIBOLD_FONT_FAMILY,
           fontSize: Math.max(20, Math.floor(size * 0.25)),
           fontWeight: '600',
         },
@@ -73,13 +73,13 @@ export class LevelTile extends Container {
       return;
     }
 
-    drawBackground(COLORS.tile);
+    drawBackground(COLORS.levelTile);
 
     const labelText = new Text({
       text: label,
       style: {
         fill: COLORS.text,
-        fontFamily: FONT_FAMILY,
+        fontFamily: INTER_SEMIBOLD_FONT_FAMILY,
         fontSize: Math.max(20, Math.floor(size * 0.25)),
         fontWeight: '600',
       },
@@ -100,8 +100,8 @@ export class LevelTile extends Container {
     this.cursor = 'pointer';
     this.hitArea = new Rectangle(0, 0, size, size);
 
-    this.on('pointerover', () => drawBackground(COLORS.tileHover));
-    this.on('pointerout', () => drawBackground(COLORS.tile));
+    this.on('pointerover', () => drawBackground(COLORS.levelTileHover));
+    this.on('pointerout', () => drawBackground(COLORS.levelTile));
     this.on('pointertap', onClick);
   }
 

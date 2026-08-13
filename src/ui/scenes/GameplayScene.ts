@@ -450,7 +450,7 @@ export class GameplayScene extends Container implements IScene {
         width: solutionButtonWidth,
         height: debugButtonHeight,
         label: 'Show Solution',
-        color: COLORS.buttonEasy,
+        color: COLORS.menuButtonColorEasy,
         onClick: () => this.callbacks.onShowSolution(),
       });
       solutionButton.x = panelX;
@@ -461,7 +461,7 @@ export class GameplayScene extends Container implements IScene {
         width: newBoardButtonWidth,
         height: debugButtonHeight,
         label: 'New Board',
-        color: COLORS.buttonMedium,
+        color: COLORS.menuButtonColorMedium,
         onClick: () => this.callbacks.onNewBoard(),
       });
       newBoardButton.x = panelX + solutionButtonWidth + BUTTON_GAP;
@@ -1061,7 +1061,7 @@ export class GameplayScene extends Container implements IScene {
       width: VICTORY_BUTTON_WIDTH,
       height: VICTORY_BUTTON_HEIGHT,
       label: this.hasNextLevel ? 'Next Level' : 'Level Select',
-      color: COLORS.buttonEasy,
+      color: COLORS.menuButtonColorEasy,
       onClick: () => {
         if (this.hasNextLevel) {
           this.callbacks.onNextLevel();

@@ -79,7 +79,7 @@ export class MainMenuScene extends Container implements IScene {
 
     const lineLength = 100;
     const endCircleRadius = 2.5;
-    const color = 0xffffff;
+    const color = COLORS.white;
     const lineWidth = 1.5;
     const offset = 26;
 

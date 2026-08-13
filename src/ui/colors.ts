@@ -1,24 +1,48 @@
 export const COLORS = {
+  white: 0xffffff,
   background: 0xb0b9c2,
+  title: 0x2d3740,
 
-  buttonEasy:   0x789D72,
-  buttonMedium: 0x6E9FB8,
-  buttonHard:   0x907FAF,
+  menuButtonColorEasy:   0x789D72,
+  menuButtonColorMedium: 0x6E9FB8,
+  menuButtonColorHard:   0x907FAF,
 
   menuButton: 0xc4cacf,
   menuButtonDark: 0xaeb7be,
   menuButtonText : 0x2d3740,
   menuButtonSubText : 0x44505c,
+  menuButtonBarTrackColor: 0xa4aab4,
 
 
 
-  tile: 0x2a2a4a,
-  tileHover: 0x3d3d6b,
-  tileLocked: 0x555555,
-  tileCompletedBadge: 0xffd700,
+  levelSelectHeader: 0xc4cacf,
+  levelSelectHeaderEasy: 0x6F9369,
+  levelSelectHeaderMedium: 0x6090A8,
+  levelSelectHeaderHard: 0x806F9D,
+
+
+  levelButton:      0xC4CACF,
+  levelButtonHover: 0xD4D9DD,
+
+  levelButtonLocked:0xAEB7BE,
+
+  // Level number
+  levelNumber:      0x2D3740,
+  levelNumberLocked:0x68737C,
+
+  // Level states
+  starFilled:       0xE5A85F,
+  starOutline:      0x7F8992,
+  lock:             0x606B74,
+
+
+  levelTile: 0x2a2a4a,
+  levelTileHover: 0x3d3d6b,
+  levelTileLocked: 0x555555,
+  
   text: 0xffffff,
   textMuted: 0xb0b0c8,
-  title: 0x2d3740,
+
 
   gridLine: 0x44505c,
   regionBorder: 0x44505c,

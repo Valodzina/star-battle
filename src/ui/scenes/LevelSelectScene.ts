@@ -6,7 +6,7 @@ import { DIFFICULTY_META } from '../../types/level';
 import type { LevelManager } from '../../services/LevelManager';
 import type { ProgressManager } from '../../services/ProgressManager';
 import { COLORS } from '../colors';
-import { FONT_FAMILY, SCREEN_PADDING, TILE_GAP } from '../constants';
+import {  SCREEN_PADDING, TILE_GAP, TITLE_FONT_FAMILY } from '../constants';
 import { getBackTexture } from '../gameAssets';
 import { LevelTile } from '../components/LevelTile';
 import type { IScene } from './IScene';
@@ -22,7 +22,6 @@ const DEFAULT_TILE_HEIGHT = 120;
 const MIN_LAYOUT_WIDTH =
   SCREEN_PADDING * 2 + DEFAULT_TILE_WIDTH * 3 + TILE_GAP * 2;
 const ICON_BUTTON_SIZE = 40;
-const ACTIVE_TINT = 0x44505c;
 const PADDING = TILE_GAP;
 const HEADER_OFFSET = 72;
 const OVERSCROLL_FRICTION = 0.3;
@@ -105,38 +104,51 @@ export class LevelSelectScene extends Container implements IScene {
     const contentContainer = new Container();
     this.addChild(contentContainer);
 
+    const headerContainer = new Container();
+    contentContainer.addChild(headerContainer);
+
     const availableWidth = layoutWidth - SCREEN_PADDING * 2;
     this.tileWidth = DEFAULT_TILE_WIDTH;
     this.tileHeight = DEFAULT_TILE_HEIGHT;
 
+    this.contentTop = SCREEN_PADDING + HEADER_OFFSET;
+
+    const headerBackground = new Graphics()
+      .rect(0, 0, layoutWidth, this.contentTop)
+      .fill(COLORS.levelSelectHeader);
+    headerContainer.addChild(headerBackground);
+
     const backButton = new Sprite(getBackTexture());
     backButton.width = ICON_BUTTON_SIZE;
     backButton.height = ICON_BUTTON_SIZE;
-    backButton.x = SCREEN_PADDING;
-    backButton.y = SCREEN_PADDING;
-    backButton.tint = ACTIVE_TINT;
+    backButton.x = SCREEN_PADDING*2;
+    backButton.y = SCREEN_PADDING*2;
+    backButton.anchor.set(0.5);
+    backButton.tint = COLORS.title
     backButton.eventMode = 'static';
     backButton.cursor = 'pointer';
     backButton.on('pointertap', () => this.callbacks.onBackSelected());
-    contentContainer.addChild(backButton);
+    headerContainer.addChild(backButton);
 
     const header = new Text({
       text: meta?.label ?? this.difficulty,
       style: {
         fill: COLORS.title,
-        fontFamily: FONT_FAMILY,
-        fontSize: 32,
+        fontFamily: TITLE_FONT_FAMILY,
+
+        fontSize: 45,
+        letterSpacing: 1.6,
         fontWeight: '700',
       },
     });
-    header.anchor.set(0.5, 0);
-    header.x = layoutWidth / 2;
-    header.y = SCREEN_PADDING;
-    contentContainer.addChild(header);
 
-    this.contentTop = SCREEN_PADDING + HEADER_OFFSET;
+    header.anchor.set(0.5);
+    header.x = layoutWidth / 2;
+    header.y = SCREEN_PADDING*2;
+    headerContainer.addChild(header);
+
     const contentWidth = availableWidth;
-    this.viewHeight = Math.max(0, layoutHeight - this.contentTop - SCREEN_PADDING);
+    this.viewHeight = Math.max(0, layoutHeight - this.contentTop );
     this.cols = Math.max(1, Math.floor((contentWidth + PADDING) / (this.tileWidth + PADDING)));
 
     const totalRows = Math.ceil(levelCount / this.cols);
@@ -148,7 +160,7 @@ export class LevelSelectScene extends Container implements IScene {
 
     const scrollMask = new Graphics()
       .rect(0, this.contentTop, layoutWidth, this.viewHeight)
-      .fill(0xffffff);
+      .fill(COLORS.white);
     contentContainer.addChild(scrollMask);
 
     const scrollContainer = new Container();
