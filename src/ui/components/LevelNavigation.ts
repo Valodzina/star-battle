@@ -1,14 +1,14 @@
-import { Container, FederatedPointerEvent, Graphics, Rectangle, Text } from 'pixi.js';
+import { Container, FederatedPointerEvent, Graphics, Rectangle, Sprite, Text } from 'pixi.js';
 import { COLORS } from '../colors';
 import {
-  FONT_FAMILY,
+  INTER_MEDIUM_FONT_FAMILY,
   LEVEL_NAV_HEIGHT,
   LEVEL_NAV_SWIPE_THRESHOLD,
 } from '../constants';
+import { getBack1Texture } from '../gameAssets';
 
-const ACTIVE_TINT = 0x44505c;
-const INACTIVE_TINT = 0x9ba4b5;
-const ARROW_INSET_X = 28;
+const ARROW_INSET_X = 80;
+const ARROW_ICON_SIZE = 28;
 
 export interface LevelNavigationOptions {
   levelNumber: number;
@@ -21,8 +21,8 @@ export interface LevelNavigationOptions {
 
 export class LevelNavigation extends Container {
   private readonly swipeZone: Graphics;
-  private readonly prevButton: Text;
-  private readonly nextButton: Text;
+  private readonly prevButton: Sprite;
+  private readonly nextButton: Sprite;
   private readonly levelText: Text;
   private readonly onPrevClick: () => void;
   private readonly onNextClick: () => void;
@@ -50,7 +50,7 @@ export class LevelNavigation extends Container {
     this.swipeZone = new Graphics();
     this.swipeZone
       .rect(0, 0, logicalBoardWidth, LEVEL_NAV_HEIGHT)
-      .fill({ color: 0xffffff, alpha: 0.3 });
+      .fill({ color: COLORS.white, alpha: 0.301 });
     this.swipeZone.eventMode = 'static';
     this.swipeZone.cursor = 'pointer';
     this.swipeZone.hitArea = new Rectangle(0, 0, logicalBoardWidth, LEVEL_NAV_HEIGHT);
@@ -82,8 +82,8 @@ export class LevelNavigation extends Container {
     this.levelText = new Text({
       text: String(levelNumber),
       style: {
-        fill: COLORS.elementFill,
-        fontFamily: FONT_FAMILY,
+        fill: COLORS.title,
+        fontFamily: INTER_MEDIUM_FONT_FAMILY,
         fontSize: 32,
         fontWeight: '700',
       },
@@ -93,25 +93,23 @@ export class LevelNavigation extends Container {
     this.levelText.y = LEVEL_NAV_HEIGHT / 2;
     this.levelText.eventMode = 'none';
 
-    const arrowStyle = {
-      fill: COLORS.elementFill,
-      fontFamily: FONT_FAMILY,
-      fontSize: 28,
-      fontWeight: '700' as const,
-    };
-
-    this.prevButton = new Text({ text: '<', style: arrowStyle });
+    this.prevButton = new Sprite(getBack1Texture());
     this.prevButton.anchor.set(0.5);
-    this.prevButton.x = ARROW_INSET_X;
+    this.prevButton.width = ARROW_ICON_SIZE;
+    this.prevButton.height = ARROW_ICON_SIZE;
+    this.prevButton.x = logicalBoardWidth/2 - ARROW_INSET_X;
     this.prevButton.y = LEVEL_NAV_HEIGHT / 2;
     this.prevButton.on('pointertap', (event: FederatedPointerEvent) => {
       event.stopPropagation();
       this.onPrevClick();
     });
 
-    this.nextButton = new Text({ text: '>', style: arrowStyle });
+    this.nextButton = new Sprite(getBack1Texture());
     this.nextButton.anchor.set(0.5);
-    this.nextButton.x = logicalBoardWidth - ARROW_INSET_X;
+    this.nextButton.width = ARROW_ICON_SIZE;
+    this.nextButton.height = ARROW_ICON_SIZE;
+    this.nextButton.scale.x *= -1;
+    this.nextButton.x = logicalBoardWidth/2 + ARROW_INSET_X;
     this.nextButton.y = LEVEL_NAV_HEIGHT / 2;
     this.nextButton.on('pointertap', (event: FederatedPointerEvent) => {
       event.stopPropagation();
@@ -138,8 +136,8 @@ export class LevelNavigation extends Container {
     this.applyEnabledState(this.nextButton, isEnabled);
   }
 
-  private applyEnabledState(button: Text, isEnabled: boolean): void {
-    button.tint = isEnabled ? ACTIVE_TINT : INACTIVE_TINT;
+  private applyEnabledState(button: Sprite, isEnabled: boolean): void {
+    button.tint = isEnabled ? COLORS.activeTint : COLORS.inactiveTint;
     button.alpha = isEnabled ? 1 : 0.5;
     button.eventMode = isEnabled ? 'static' : 'none';
     button.cursor = isEnabled ? 'pointer' : 'default';

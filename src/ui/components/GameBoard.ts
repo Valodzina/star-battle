@@ -189,7 +189,7 @@ export class GameBoard extends Container {
       cap: 'round',
     });
 
-    this.boardMask.roundRect(0, 0, boardWidth, boardHeight, cellRadius).fill(0xffffff);
+    this.boardMask.roundRect(0, 0, boardWidth, boardHeight, cellRadius).fill(COLORS.white);
 
     this.gridContainer.addChild(
       boardUnderlay,

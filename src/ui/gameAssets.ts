@@ -7,6 +7,7 @@ import starWinImageUrl from '../assets/images/star-win.png';
 import undoImageUrl from '../assets/images/undo.png';
 import binImageUrl from '../assets/images/bin-1.png';
 import backImageUrl from '../assets/images/back.png';
+import back1ImageUrl from '../assets/images/back-1.png';
 import lockImageUrl from '../assets/images/lock.png';
 import {
   INTER_MEDIUM_FONT_FAMILY,
@@ -19,6 +20,7 @@ export const STAR_WIN_TEXTURE_ID = 'star-win';
 export const UNDO_TEXTURE_ID = 'undo';
 export const BIN_TEXTURE_ID = 'bin-1';
 export const BACK_TEXTURE_ID = 'back';
+export const BACK_1_TEXTURE_ID = 'back-1';
 export const LOCK_TEXTURE_ID = 'lock';
 export const MONTSERRAT_EXTRABOLD_FONT_ID = 'montserrat-extrabold';
 export const INTER_SEMIBOLD_FONT_ID = 'inter-semibold';
@@ -31,6 +33,7 @@ export async function loadGameAssets(): Promise<void> {
     { alias: UNDO_TEXTURE_ID, src: undoImageUrl },
     { alias: BIN_TEXTURE_ID, src: binImageUrl },
     { alias: BACK_TEXTURE_ID, src: backImageUrl },
+    { alias: BACK_1_TEXTURE_ID, src: back1ImageUrl },
     { alias: LOCK_TEXTURE_ID, src: lockImageUrl },
     {
       alias: MONTSERRAT_EXTRABOLD_FONT_ID,
@@ -68,6 +71,10 @@ export function getBinTexture(): Texture {
 
 export function getBackTexture(): Texture {
   return Assets.get<Texture>(BACK_TEXTURE_ID);
+}
+
+export function getBack1Texture(): Texture {
+  return Assets.get<Texture>(BACK_1_TEXTURE_ID);
 }
 
 export function getLockTexture(): Texture {

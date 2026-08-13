@@ -10,8 +10,7 @@ export const AUTOFILL_TOGGLE_HEIGHT = 40;
 const STAR_SIZE = 21;
 const DOT_RADIUS = 2.0;
 const DOT_ORBIT = 10;
-const ON_FILL = 0x44505c;
-const OFF_FILL = 0x9ba4b5;
+
 const ANIM_DURATION = 0.3;
 const ANIM_EASE = 'power2.inOut';
 
@@ -59,7 +58,7 @@ export class AutofillToggle extends Container {
     const centerY = height / 2;
 
     this.background = new Graphics();
-    this.drawBackground(isActive ? ON_FILL : OFF_FILL);
+    this.drawBackground(isActive ? COLORS.activeTint : COLORS.inactiveTint);
 
     this.dotsContainer = new Container();
     this.dotsContainer.alpha = isActive ? 1 : 0;
@@ -141,7 +140,7 @@ export class AutofillToggle extends Container {
             this.killTweens();
             return;
           }
-          this.drawBackground(blendColor(OFF_FILL, ON_FILL, this.colorState.t));
+          this.drawBackground(blendColor(COLORS.inactiveTint, COLORS.activeTint, this.colorState.t));
         },
       }),
     ];
@@ -152,7 +151,7 @@ export class AutofillToggle extends Container {
     this.thumb.x = active ? this.rightX : this.leftX;
     this.dotsContainer.alpha = active ? 1 : 0;
     this.colorState.t = active ? 1 : 0;
-    this.drawBackground(active ? ON_FILL : OFF_FILL);
+    this.drawBackground(active ? COLORS.activeTint : COLORS.inactiveTint);
   }
 
   private drawBackground(fillColor: number): void {

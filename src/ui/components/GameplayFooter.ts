@@ -1,5 +1,6 @@
 import { Container, Sprite } from 'pixi.js';
 import { BUTTON_GAP } from '../constants';
+import { COLORS } from '../colors';
 import {
   AutofillToggle,
   AUTOFILL_TOGGLE_HEIGHT,
@@ -8,8 +9,7 @@ import {
 import { getBinTexture, getUndoTexture } from '../gameAssets';
 
 const ICON_BUTTON_SIZE = 40;
-const ACTIVE_TINT = 0x44505c;
-const INACTIVE_TINT = 0x9ba4b5;
+
 
 export const GAMEPLAY_FOOTER_CONTENT_WIDTH =
   ICON_BUTTON_SIZE + BUTTON_GAP + ICON_BUTTON_SIZE + BUTTON_GAP + AUTOFILL_TOGGLE_WIDTH;
@@ -89,7 +89,7 @@ export class GameplayFooter extends Container {
   }
 
   private setButtonEnabled(buttonSprite: Sprite, isEnabled: boolean): void {
-    buttonSprite.tint = isEnabled ? ACTIVE_TINT : INACTIVE_TINT;
+    buttonSprite.tint = isEnabled ? COLORS.activeTint : COLORS.inactiveTint;
     buttonSprite.eventMode = isEnabled ? 'static' : 'none';
     buttonSprite.cursor = isEnabled ? 'pointer' : 'default';
   }

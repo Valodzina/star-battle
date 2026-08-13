@@ -1,4 +1,3 @@
-export const FONT_FAMILY = 'Arial, sans-serif';
 export const TITLE_FONT_FAMILY = 'Montserrat-ExtraBold';
 export const INTER_SEMIBOLD_FONT_FAMILY = 'Inter28pt-SemiBold';
 export const INTER_MEDIUM_FONT_FAMILY = 'Inter28pt-Medium';

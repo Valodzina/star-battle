@@ -2,6 +2,8 @@ export const COLORS = {
   white: 0xffffff,
   background: 0xb0b9c2,
   title: 0x2d3740,
+  activeTint: 0x2d3740,
+  inactiveTint: 0x68737C,
 
   menuButtonColorEasy:   0x789D72,
   menuButtonColorMedium: 0x6E9FB8,
@@ -39,10 +41,6 @@ export const COLORS = {
   lock:             0x606B74,
 
 
-  levelTile: 0x2a2a4a,
-  levelTileHover: 0x3d3d6b,
-  levelTileLocked: 0x555555,
-  
   text: 0xffffff,
   textMuted: 0xb0b0c8,
 
@@ -59,7 +57,7 @@ export const COLORS = {
   victoryCardTitle: 0x2a2a4a,
   victoryCardTime: 0x44505c,
   victoryStarTint: 0xecca92,
-  answerColor: 0x000000,
+
 } as const;
 
 export const REGION_COLORS: readonly number[] = [

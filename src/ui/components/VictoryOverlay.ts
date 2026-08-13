@@ -1,7 +1,7 @@
 import { Container, Graphics, Text, Sprite } from 'pixi.js';
 import gsap from 'gsap';
 import { COLORS } from '../colors';
-import { FONT_FAMILY } from '../constants';
+import { INTER_MEDIUM_FONT_FAMILY, INTER_SEMIBOLD_FONT_FAMILY } from '../constants';
 import { Button } from './Button';
 import { getStarWinTexture } from '../gameAssets';
 
@@ -39,7 +39,7 @@ export class VictoryOverlay extends Container {
       text: 'SOLVED',
       style: {
         fill: COLORS.elementFill,
-        fontFamily: FONT_FAMILY,
+        fontFamily: INTER_SEMIBOLD_FONT_FAMILY,
         fontSize: 36,
         fontWeight: '700',
       },
@@ -52,7 +52,7 @@ export class VictoryOverlay extends Container {
       text: '',
       style: {
         fill: COLORS.elementFill,
-        fontFamily: FONT_FAMILY,
+        fontFamily: INTER_MEDIUM_FONT_FAMILY,
         fontSize: 20,
         fontWeight: '600',
       },

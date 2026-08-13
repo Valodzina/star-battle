@@ -1,12 +1,11 @@
 import { Container, Text, Sprite } from 'pixi.js';
 import { COLORS } from '../colors';
-import { FONT_FAMILY, LEVEL_NAV_GAP, LEVEL_NAV_HEIGHT } from '../constants';
+import { INTER_MEDIUM_FONT_FAMILY, LEVEL_NAV_GAP, LEVEL_NAV_HEIGHT } from '../constants';
 import { getBackTexture } from '../gameAssets';
 import { LevelNavigation } from './LevelNavigation';
 
 const ICON_BUTTON_SIZE = 40;
 const HEADER_BUTTON_HEIGHT = 40;
-const ACTIVE_TINT = 0x44505c;
 
 export interface GameplayHeaderOptions {
   initialTimerText: string;
@@ -45,7 +44,7 @@ export class GameplayHeader extends Container {
     this.backButton.anchor.set(0.5);
     this.backButton.width = ICON_BUTTON_SIZE;
     this.backButton.height = ICON_BUTTON_SIZE;
-    this.backButton.tint = ACTIVE_TINT;
+    this.backButton.tint = COLORS.activeTint;
     this.backButton.eventMode = 'static';
     this.backButton.cursor = 'pointer';
     this.backButton.on('pointertap', () => onBackClicked());
@@ -53,8 +52,8 @@ export class GameplayHeader extends Container {
     this.timerText = new Text({
       text: initialTimerText,
       style: {
-        fill: COLORS.elementFill,
-        fontFamily: FONT_FAMILY,
+        fill: COLORS.title,
+        fontFamily: INTER_MEDIUM_FONT_FAMILY,
         fontSize: 28,
         fontWeight: '700',
       },
@@ -64,8 +63,8 @@ export class GameplayHeader extends Container {
     this.remainingText = new Text({
       text: `Left: ${initialStars}`,
       style: {
-        fill: COLORS.elementFill,
-        fontFamily: FONT_FAMILY,
+        fill: COLORS.title,
+        fontFamily: INTER_MEDIUM_FONT_FAMILY,
         fontSize: 20,
         fontWeight: '600',
       },
