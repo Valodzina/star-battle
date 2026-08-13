@@ -1,6 +1,6 @@
 import './style.css';
 
-import { Application } from 'pixi.js';
+import { Application, TextureSource, TextureStyle } from 'pixi.js';
 import { GameController } from './game/GameController';
 import { LevelManager } from './services/LevelManager';
 import { COLORS } from './ui/colors';
@@ -18,7 +18,11 @@ async function bootstrap(): Promise<void> {
     resizeTo: window,
     resolution: window.devicePixelRatio || 1,
     autoDensity: true,
+    antialias: true,
   });
+
+  TextureStyle.defaultOptions.scaleMode = 'linear';
+  TextureSource.defaultOptions.autoGenerateMipmaps = true;
 
   await loadGameAssets();
 
