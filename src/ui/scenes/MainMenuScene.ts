@@ -1,4 +1,4 @@
-import { Container, Text , Sprite, Graphics} from 'pixi.js';
+import { Container, Text, Sprite, Graphics } from 'pixi.js';
 import type { Difficulty } from '../../types/level';
 import { DIFFICULTY_META } from '../../types/level';
 import type { LevelManager } from '../../services/LevelManager';
@@ -8,6 +8,9 @@ import { BUTTON_GAP, SCREEN_PADDING, TITLE_FONT_FAMILY } from '../constants';
 import { MainMenuButton } from '../components/MainMenuButton';
 import type { IScene } from './IScene';
 import { getStarWinTexture } from '../gameAssets';
+
+const BUTTON_WIDTH = 320;
+const BUTTON_HEIGHT = 72;
 
 export interface MainMenuSceneCallbacks {
   onDifficultySelected: (difficulty: Difficulty) => void;
@@ -39,11 +42,11 @@ export class MainMenuScene extends Container implements IScene {
     this.visible = false;
   }
 
-  resize(width: number, height: number): void {
+  resize(screenWidth: number, screenHeight: number): void {
     this.removeChildren().forEach((child) => child.destroy({ children: true }));
 
-    const buttonWidth = Math.min(320, width - SCREEN_PADDING * 2);
-    const buttonHeight = 72;
+    const mainContainer = new Container();
+    this.addChild(mainContainer);
 
     const title = new Text({
       text: 'STAR\nBATTLE',
@@ -58,16 +61,13 @@ export class MainMenuScene extends Container implements IScene {
       },
     });
     title.anchor.set(0.5);
-    title.x = width / 2;
-    title.y = height * 0.18;
-    this.addChild(title);
-
-    //a8aeb6
-
+    title.x = 0;
+    title.y = -220;
+    mainContainer.addChild(title);
 
     const titleLogo = new Container();
-    titleLogo.x = width / 2;
-    titleLogo.y = height * 0.18 - 60;
+    titleLogo.x = 0;
+    titleLogo.y = -280;
     titleLogo.tint = COLORS.title;
 
     const tileLogoSprite = new Sprite(getStarWinTexture());
@@ -76,14 +76,10 @@ export class MainMenuScene extends Container implements IScene {
     tileLogoSprite.width = 20;
     tileLogoSprite.height = 20;
     tileLogoSprite.anchor.set(0.5);
-    // tileLogoSprite.tint = COLORS.title;
-    titleLogo.addChild(tileLogoSprite);
-
-
 
     const lineLength = 100;
     const endCircleRadius = 2.5;
-    const color = 0xFFFFFF;
+    const color = 0xffffff;
     const lineWidth = 1.5;
     const offset = 26;
 
@@ -97,7 +93,7 @@ export class MainMenuScene extends Container implements IScene {
     titleLogo.addChild(titleLogoLeftLine);
 
     const titleLogoRightLine = new Graphics();
-    titleLogoRightLine.moveTo( offset, 0).lineTo(lineLength + offset, 0).stroke({
+    titleLogoRightLine.moveTo(offset, 0).lineTo(lineLength + offset, 0).stroke({
       width: lineWidth,
       color: color,
       alpha: 1,
@@ -106,18 +102,18 @@ export class MainMenuScene extends Container implements IScene {
     titleLogo.addChild(titleLogoRightLine);
 
     titleLogo.addChild(tileLogoSprite);
-    this.addChild(titleLogo);
+    mainContainer.addChild(titleLogo);
 
     const menu = new Container();
     const totalHeight =
-      DIFFICULTY_META.length * buttonHeight + (DIFFICULTY_META.length - 1) * BUTTON_GAP;
-    menu.x = width / 2 - buttonWidth / 2;
-    menu.y = height / 2 - totalHeight / 2 + 50;
+      DIFFICULTY_META.length * BUTTON_HEIGHT + (DIFFICULTY_META.length - 1) * BUTTON_GAP;
+    menu.x = -BUTTON_WIDTH / 2;
+    menu.y = -totalHeight / 2 + 50;
 
     DIFFICULTY_META.forEach((meta, index) => {
       const button = new MainMenuButton({
-        width: buttonWidth,
-        height: buttonHeight,
+        width: BUTTON_WIDTH,
+        height: BUTTON_HEIGHT,
         label: meta.label,
         subtitle: meta.subtitle,
         difficultyColor: meta.color,
@@ -125,10 +121,24 @@ export class MainMenuScene extends Container implements IScene {
         total: this.levelManager.getLevelCount(meta.difficulty),
         onClick: () => this.callbacks.onDifficultySelected(meta.difficulty),
       });
-      button.y = index * (buttonHeight + BUTTON_GAP);
+      button.y = index * (BUTTON_HEIGHT + BUTTON_GAP);
       menu.addChild(button);
     });
 
-    this.addChild(menu);
+    mainContainer.addChild(menu);
+
+    // Fit-to-screen: scale down only if needed, and center the visual bounds
+    // (not local origin) so asymmetric title/logo stack isn't clipped in landscape.
+    const bounds = mainContainer.getLocalBounds();
+    const availableWidth = Math.max(1, screenWidth - SCREEN_PADDING * 2);
+    const availableHeight = Math.max(1, screenHeight - SCREEN_PADDING * 2);
+    const scale = Math.min(
+      1,
+      availableWidth / Math.max(1, bounds.width),
+      availableHeight / Math.max(1, bounds.height),
+    );
+    mainContainer.scale.set(scale);
+    mainContainer.x = screenWidth / 2 - (bounds.x + bounds.width / 2) * scale;
+    mainContainer.y = screenHeight / 2 - (bounds.y + bounds.height / 2) * scale;
   }
 }

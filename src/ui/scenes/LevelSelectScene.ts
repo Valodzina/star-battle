@@ -18,6 +18,9 @@ export interface LevelSelectSceneCallbacks {
 
 const DEFAULT_TILE_WIDTH = 120;
 const DEFAULT_TILE_HEIGHT = 120;
+/** Minimum width for a 3-column grid; wider screens use more columns at scale 1. */
+const MIN_LAYOUT_WIDTH =
+  SCREEN_PADDING * 2 + DEFAULT_TILE_WIDTH * 3 + TILE_GAP * 2;
 const ICON_BUTTON_SIZE = 40;
 const ACTIVE_TINT = 0x44505c;
 const PADDING = TILE_GAP;
@@ -41,6 +44,7 @@ export class LevelSelectScene extends Container implements IScene {
   private readonly activeTweens = new Set<gsap.core.Tween>();
 
   private scrollContainer: Container | null = null;
+  private contentScale = 1;
   private contentTop = 0;
   private viewHeight = 0;
   private contentHeight = 0;
@@ -88,14 +92,22 @@ export class LevelSelectScene extends Container implements IScene {
     this.layout(width, height);
   }
 
-  private layout(width: number, height: number): void {
+  private layout(screenWidth: number, screenHeight: number): void {
     const meta = DIFFICULTY_META.find((entry) => entry.difficulty === this.difficulty);
     const levelCount = this.levelManager.getLevelCount(this.difficulty);
 
-    const availableWidth = width - SCREEN_PADDING * 2;
-    const maxTileWidth = (availableWidth - TILE_GAP * 2) / 3;
-    this.tileWidth = Math.min(DEFAULT_TILE_WIDTH, maxTileWidth);
-    this.tileHeight = this.tileWidth * (DEFAULT_TILE_HEIGHT / DEFAULT_TILE_WIDTH);
+    // Scale down only below the 3-column minimum; wider screens keep scale 1 and gain columns.
+    const scale = Math.min(1, screenWidth / MIN_LAYOUT_WIDTH);
+    this.contentScale = scale;
+    const layoutWidth = screenWidth / scale;
+    const layoutHeight = screenHeight / scale;
+
+    const contentContainer = new Container();
+    this.addChild(contentContainer);
+
+    const availableWidth = layoutWidth - SCREEN_PADDING * 2;
+    this.tileWidth = DEFAULT_TILE_WIDTH;
+    this.tileHeight = DEFAULT_TILE_HEIGHT;
 
     const backButton = new Sprite(getBackTexture());
     backButton.width = ICON_BUTTON_SIZE;
@@ -106,7 +118,7 @@ export class LevelSelectScene extends Container implements IScene {
     backButton.eventMode = 'static';
     backButton.cursor = 'pointer';
     backButton.on('pointertap', () => this.callbacks.onBackSelected());
-    this.addChild(backButton);
+    contentContainer.addChild(backButton);
 
     const header = new Text({
       text: meta?.label ?? this.difficulty,
@@ -118,13 +130,13 @@ export class LevelSelectScene extends Container implements IScene {
       },
     });
     header.anchor.set(0.5, 0);
-    header.x = width / 2;
+    header.x = layoutWidth / 2;
     header.y = SCREEN_PADDING;
-    this.addChild(header);
+    contentContainer.addChild(header);
 
     this.contentTop = SCREEN_PADDING + HEADER_OFFSET;
     const contentWidth = availableWidth;
-    this.viewHeight = Math.max(0, height - this.contentTop - SCREEN_PADDING);
+    this.viewHeight = Math.max(0, layoutHeight - this.contentTop - SCREEN_PADDING);
     this.cols = Math.max(1, Math.floor((contentWidth + PADDING) / (this.tileWidth + PADDING)));
 
     const totalRows = Math.ceil(levelCount / this.cols);
@@ -135,9 +147,9 @@ export class LevelSelectScene extends Container implements IScene {
     const gridOffsetX = SCREEN_PADDING + (contentWidth - gridWidth) / 2;
 
     const scrollMask = new Graphics()
-      .rect(0, this.contentTop, width, this.viewHeight)
+      .rect(0, this.contentTop, layoutWidth, this.viewHeight)
       .fill(0xffffff);
-    this.addChild(scrollMask);
+    contentContainer.addChild(scrollMask);
 
     const scrollContainer = new Container();
     scrollContainer.x = gridOffsetX;
@@ -152,7 +164,7 @@ export class LevelSelectScene extends Container implements IScene {
       Math.max(this.contentHeight, this.viewHeight),
     );
     this.scrollContainer = scrollContainer;
-    this.addChild(scrollContainer);
+    contentContainer.addChild(scrollContainer);
 
     for (let index = 0; index < levelCount; index += 1) {
       const level = this.levelManager.getLevel(this.difficulty, index);
@@ -184,6 +196,10 @@ export class LevelSelectScene extends Container implements IScene {
       scrollContainer.addChild(tile);
     }
 
+    contentContainer.scale.set(scale);
+    contentContainer.x = (screenWidth - layoutWidth * scale) / 2;
+    contentContainer.y = 0;
+
     this.bindScrollEvents(scrollContainer);
     this.focusTargetLevel();
   }
@@ -205,7 +221,7 @@ export class LevelSelectScene extends Container implements IScene {
         return;
       }
 
-      const delta = event.global.y - this.lastPointerY;
+      const delta = (event.global.y - this.lastPointerY) / this.contentScale;
       this.lastPointerY = event.global.y;
 
       if (Math.abs(event.global.y - this.dragStartY) > DRAG_THRESHOLD) {
@@ -353,6 +369,7 @@ export class LevelSelectScene extends Container implements IScene {
 
   private clearScrollState(): void {
     this.scrollContainer = null;
+    this.contentScale = 1;
     this.isDragging = false;
     this.didDrag = false;
     this.dragPointerId = null;

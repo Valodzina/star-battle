@@ -1,26 +1,15 @@
 export const COLORS = {
   background: 0xb0b9c2,
 
-
-  // buttonEasy: 0x83A77E,
-  // buttonMedium: 0x78A7BC,
-  // buttonHard: 0x9989B5,
-
   buttonEasy:   0x789D72,
-buttonMedium: 0x6E9FB8,
-buttonHard:   0x907FAF,
+  buttonMedium: 0x6E9FB8,
+  buttonHard:   0x907FAF,
 
   menuButton: 0xc4cacf,
   menuButtonDark: 0xaeb7be,
   menuButtonText : 0x2d3740,
   menuButtonSubText : 0x44505c,
 
-
-
-
-  buttonBack: 0x3d3d5c,
-
-  
 
 
   tile: 0x2a2a4a,
@@ -31,9 +20,6 @@ buttonHard:   0x907FAF,
   textMuted: 0xb0b0c8,
   title: 0x2d3740,
 
-  //gridLine: 0xe8e8e8,
-  // regionBorder: 0xe8e8e8,
-  // boardUnderlay: 0xe8e8e8,
   gridLine: 0x44505c,
   regionBorder: 0x44505c,
   boardUnderlay: 0x44505c,
