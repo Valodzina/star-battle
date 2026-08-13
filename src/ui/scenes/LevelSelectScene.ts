@@ -28,6 +28,7 @@ const OVERSCROLL_FRICTION = 0.3;
 const DRAG_THRESHOLD = 8;
 const MOMENTUM_DURATION = 0.55;
 const FOCUS_DURATION = 0.45;
+const SCROLL_OFFSET = 1;
 const VELOCITY_SAMPLE_WINDOW_MS = 100;
 
 interface VelocitySample {
@@ -335,7 +336,7 @@ export class LevelSelectScene extends Container implements IScene {
     let targetOffset = 0;
     if (targetIndex >= 0) {
       const row = Math.floor(targetIndex / this.cols);
-      targetOffset = -(PADDING + row * (this.tileHeight + PADDING));
+      targetOffset = -(PADDING + row * (this.tileHeight + PADDING)) + SCROLL_OFFSET;
     }
 
     targetOffset = Math.max(this.minY, Math.min(0, targetOffset));
