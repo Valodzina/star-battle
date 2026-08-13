@@ -21,10 +21,6 @@ export interface GameViewCallbacks {
   onBackToLevels: () => void;
   onPreviousLevel: () => void;
   onNextLevel: () => void;
-  // --- DEBUG_MODE panel ---
-  onShowSolution: () => void;
-  onNewBoard: () => void;
-  // --- END DEBUG_MODE panel ---
 }
 
 export class GameView {
@@ -32,9 +28,6 @@ export class GameView {
   private readonly app: Application;
   private readonly levelManager: LevelManager;
   private readonly progressManager: ProgressManager;
-  // --- DEBUG_MODE panel ---
-  private readonly debugMode: boolean;
-  // --- END DEBUG_MODE panel ---
   private autoFillEnabled = true;
   private callbacks: GameViewCallbacks = {
     onDifficultySelected: () => undefined,
@@ -50,10 +43,6 @@ export class GameView {
     onBackToLevels: () => undefined,
     onPreviousLevel: () => undefined,
     onNextLevel: () => undefined,
-    // --- DEBUG_MODE panel ---
-    onShowSolution: () => undefined,
-    onNewBoard: () => undefined,
-    // --- END DEBUG_MODE panel ---
   };
 
   private currentScene: IScene | null = null;
@@ -63,12 +52,10 @@ export class GameView {
     app: Application,
     levelManager: LevelManager,
     progressManager: ProgressManager,
-    debugMode = false,
   ) {
     this.app = app;
     this.levelManager = levelManager;
     this.progressManager = progressManager;
-    this.debugMode = debugMode;
     this.app.stage.addChild(this.root);
   }
 
@@ -117,14 +104,9 @@ export class GameView {
           onBackToLevels: () => this.callbacks.onBackToLevels(),
           onPreviousLevel: () => this.callbacks.onPreviousLevel(),
           onNextLevel: () => this.callbacks.onNextLevel(),
-          // --- DEBUG_MODE panel ---
-          onShowSolution: () => this.callbacks.onShowSolution(),
-          onNewBoard: () => this.callbacks.onNewBoard(),
-          // --- END DEBUG_MODE panel ---
         },
         this.progressManager,
         this.autoFillEnabled,
-        this.debugMode,
       );
       this.gameplayScene = scene;
       this.mountScene(scene, width, height);
@@ -159,16 +141,6 @@ export class GameView {
   refreshLevelNavigation(): void {
     this.gameplayScene?.refreshLevelNavigation();
   }
-
-  // --- DEBUG_MODE panel ---
-  showSolutionOverlay(cells: Array<{ row: number; col: number }>): void {
-    this.gameplayScene?.showSolutionOverlay(cells);
-  }
-
-  clearSolutionOverlay(): void {
-    this.gameplayScene?.clearSolutionOverlay();
-  }
-  // --- END DEBUG_MODE panel ---
 
   private mountScene(scene: IScene & Container, width: number, height: number): void {
     this.currentScene = scene;

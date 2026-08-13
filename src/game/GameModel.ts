@@ -45,10 +45,6 @@ export class GameModel {
   private moveHistory: MoveRecord[] = [];
   private isAutoFillEnabled = true;
 
-  // --- DEBUG_MODE panel ---
-  private solutionHighlight: Array<{ row: number; col: number }> | null = null;
-  // --- END DEBUG_MODE panel ---
-
   getState(): GameState {
     return this.state;
   }
@@ -71,24 +67,6 @@ export class GameModel {
     return this.isAutoFillEnabled;
   }
 
-  // --- DEBUG_MODE panel ---
-  setSolutionHighlight(cells: Array<{ row: number; col: number }>): void {
-    this.solutionHighlight = cells;
-  }
-
-  clearSolutionHighlight(): void {
-    this.solutionHighlight = null;
-  }
-
-  getSolutionHighlight(): Array<{ row: number; col: number }> | null {
-    return this.solutionHighlight;
-  }
-
-  isShowingSolution(): boolean {
-    return this.solutionHighlight !== null;
-  }
-  // --- END DEBUG_MODE panel ---
-
   setScreen(screen: ScreenId): void {
     if (this.state.screen === screen) {
       return;
@@ -108,10 +86,6 @@ export class GameModel {
   }
 
   loadLevel(level: LevelData, levelIndex: number, levelCount: number): void {
-    // --- DEBUG_MODE panel ---
-    this.clearSolutionHighlight();
-    // --- END DEBUG_MODE panel ---
-
     this.moveHistory = [];
 
     const boardState = level.grid.map((row, rowIndex) =>
@@ -161,10 +135,6 @@ export class GameModel {
       return;
     }
 
-    // --- DEBUG_MODE panel ---
-    this.clearSolutionHighlight();
-    // --- END DEBUG_MODE panel ---
-
     this.moveHistory = [];
     this.state = { ...this.state, gameplay: null };
   }
@@ -187,10 +157,6 @@ export class GameModel {
     if (!record) {
       return null;
     }
-
-    // --- DEBUG_MODE panel ---
-    this.clearSolutionHighlight();
-    // --- END DEBUG_MODE panel ---
 
     // Restore in reverse so overlapping cells (if any) end at the earliest previous state.
     for (let i = record.changes.length - 1; i >= 0; i -= 1) {
@@ -215,10 +181,6 @@ export class GameModel {
     if (!gameplay || gameplay.isVictory) {
       return;
     }
-
-    // --- DEBUG_MODE panel ---
-    this.clearSolutionHighlight();
-    // --- END DEBUG_MODE panel ---
 
     const changes: CellChange[] = [];
     for (let row = 0; row < gameplay.boardState.length; row += 1) {
@@ -267,10 +229,6 @@ export class GameModel {
       return null;
     }
 
-    // --- DEBUG_MODE panel ---
-    this.clearSolutionHighlight();
-    // --- END DEBUG_MODE panel ---
-
     const cell = gameplay.boardState[row]?.[col];
     if (!cell) {
       return null;
@@ -299,10 +257,6 @@ export class GameModel {
       return null;
     }
 
-    // --- DEBUG_MODE panel ---
-    this.clearSolutionHighlight();
-    // --- END DEBUG_MODE panel ---
-
     const cell = gameplay.boardState[row]?.[col];
     if (!cell || (cell.placed !== 'nothing' && cell.placed !== 'auto-dot')) {
       return null;
@@ -321,10 +275,6 @@ export class GameModel {
     if (!gameplay || gameplay.isVictory) {
       return null;
     }
-
-    // --- DEBUG_MODE panel ---
-    this.clearSolutionHighlight();
-    // --- END DEBUG_MODE panel ---
 
     const cell = gameplay.boardState[row]?.[col];
     if (!cell || cell.placed !== 'dot') {

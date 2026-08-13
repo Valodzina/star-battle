@@ -4,12 +4,6 @@ import { GameView } from './GameView';
 import type { Difficulty, ScreenId } from '../types/level';
 import type { LevelManager } from '../services/LevelManager';
 import { ProgressManager } from '../services/ProgressManager';
-// --- DEBUG_MODE panel ---
-import { solve } from '../utils/StarBattleSolver';
-import { generateLevel } from '../utils/StarBattleGenerator';
-
-const DEBUG_MODE = false;
-// --- END DEBUG_MODE panel ---
 
 export class GameController {
   private readonly model = new GameModel();
@@ -26,7 +20,7 @@ export class GameController {
     this.app = app;
     this.levelManager = levelManager;
     this.progressManager = new ProgressManager(levelManager);
-    this.view = new GameView(app, levelManager, this.progressManager, DEBUG_MODE);
+    this.view = new GameView(app, levelManager, this.progressManager);
   }
 
   /** Bypass menus and load a level directly (used by DEBUG_SKIP_TO_LEVEL in main.ts). */
@@ -67,8 +61,6 @@ export class GameController {
     this.stopTimer();
     this.pendingDragChanges = [];
     this.wasVictory = false;
-    this.model.clearSolutionHighlight();
-    this.view.clearSolutionOverlay();
 
     this.model.loadLevel(
       level,
@@ -102,8 +94,6 @@ export class GameController {
     this.stopTimer();
     this.pendingDragChanges = [];
     this.wasVictory = false;
-    this.model.clearSolutionHighlight();
-    this.view.clearSolutionOverlay();
 
     this.model.loadLevel(
       level,
@@ -147,81 +137,6 @@ export class GameController {
     });
   }
 
-  // --- DEBUG_MODE panel ---
-  showSolution(): void {
-    if (!DEBUG_MODE) {
-      return;
-    }
-
-    if (this.model.isShowingSolution()) {
-      this.model.clearSolutionHighlight();
-      this.view.clearSolutionOverlay();
-      return;
-    }
-
-    const gameplay = this.model.getGameplay();
-    if (!gameplay) {
-      return;
-    }
-
-    const { size, k, grid } = gameplay.level;
-    const result = solve(size, k, grid);
-
-    if (!result.isSolvable) {
-      console.warn('[GameController] showSolution: level is not solvable');
-      return;
-    }
-
-    const cells: Array<{ row: number; col: number }> = [];
-    for (let row = 0; row < size; row += 1) {
-      for (let col = 0; col < size; col += 1) {
-        if (result.finalState[row]?.[col]?.status === 'Object') {
-          cells.push({ row, col });
-        }
-      }
-    }
-
-    this.model.setSolutionHighlight(cells);
-    this.view.showSolutionOverlay(cells);
-  }
-
-  regenerateBoard(): void {
-    if (!DEBUG_MODE) {
-      return;
-    }
-
-    const gameplay = this.model.getGameplay();
-    if (!gameplay) {
-      return;
-    }
-
-    this.stopTimer();
-    this.pendingDragChanges = [];
-    this.wasVictory = false;
-    this.model.clearSolutionHighlight();
-    this.view.clearSolutionOverlay();
-
-    const { size, k, difficulty } = gameplay.level;
-
-    let level;
-    try {
-      level = generateLevel(size, k, difficulty);
-    } catch (error: unknown) {
-      console.warn('[GameController] regenerateBoard: generation failed', error);
-      this.startTimer();
-      return;
-    }
-
-    this.pendingDragChanges = [];
-    this.model.setDifficulty(difficulty);
-    this.model.loadLevel(level, gameplay.levelIndex, gameplay.levelCount);
-    this.view.render(this.model.getState());
-    this.view.setUndoEnabled(this.model.canUndo());
-    this.view.setAutoFillEnabled(this.model.isAutoFillOn());
-    this.startTimer();
-  }
-  // --- END DEBUG_MODE panel ---
-
   private wireViewCallbacks(): void {
     this.view.setCallbacks({
       onDifficultySelected: (difficulty: Difficulty) => {
@@ -254,11 +169,6 @@ export class GameController {
         if (change) {
           this.model.pushMove({ changes: [change] });
         }
-        // --- DEBUG_MODE panel ---
-        if (!this.model.isShowingSolution()) {
-          this.view.clearSolutionOverlay();
-        }
-        // --- END DEBUG_MODE panel ---
         this.syncGameplayBoard();
         this.view.setUndoEnabled(this.model.canUndo());
       },
@@ -268,11 +178,6 @@ export class GameController {
           this.pendingDragChanges.push(change);
           this.syncGameplayBoard();
         }
-        // --- DEBUG_MODE panel ---
-        if (!this.model.isShowingSolution()) {
-          this.view.clearSolutionOverlay();
-        }
-        // --- END DEBUG_MODE panel ---
       },
       onDragErase: (row: number, col: number) => {
         const change = this.model.eraseDot(row, col);
@@ -280,11 +185,6 @@ export class GameController {
           this.pendingDragChanges.push(change);
           this.syncGameplayBoard();
         }
-        // --- DEBUG_MODE panel ---
-        if (!this.model.isShowingSolution()) {
-          this.view.clearSolutionOverlay();
-        }
-        // --- END DEBUG_MODE panel ---
       },
       onInteractionEnd: () => {
         if (this.pendingDragChanges.length > 0) {
@@ -301,11 +201,6 @@ export class GameController {
           return;
         }
 
-        // --- DEBUG_MODE panel ---
-        if (!this.model.isShowingSolution()) {
-          this.view.clearSolutionOverlay();
-        }
-        // --- END DEBUG_MODE panel ---
         this.syncGameplayBoard();
         this.view.setUndoEnabled(this.model.canUndo());
 
@@ -325,11 +220,6 @@ export class GameController {
         this.wasVictory = false;
         this.model.clearBoard();
         this.model.applyAutoFillRules();
-        // --- DEBUG_MODE panel ---
-        if (!this.model.isShowingSolution()) {
-          this.view.clearSolutionOverlay();
-        }
-        // --- END DEBUG_MODE panel ---
         this.syncGameplayBoard();
         this.view.setUndoEnabled(this.model.canUndo());
       },
@@ -346,14 +236,6 @@ export class GameController {
       onNextLevel: () => {
         this.loadNextLevel();
       },
-      // --- DEBUG_MODE panel ---
-      onShowSolution: () => {
-        this.showSolution();
-      },
-      onNewBoard: () => {
-        this.regenerateBoard();
-      },
-      // --- END DEBUG_MODE panel ---
     });
   }
 
