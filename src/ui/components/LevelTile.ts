@@ -1,6 +1,7 @@
-import { Container, Graphics, Rectangle, Text } from 'pixi.js';
+import { Container, Graphics, Rectangle, Sprite, Text, type Texture } from 'pixi.js';
 import { COLORS } from '../colors';
 import { FONT_FAMILY } from '../constants';
+import { getLockTexture, getStarTexture, getStarWinTexture } from '../gameAssets';
 
 export type LevelTileState = 'locked' | 'unlocked' | 'completed';
 
@@ -12,12 +13,15 @@ export interface LevelTileOptions {
 }
 
 export class LevelTile extends Container {
+  private stateIcon: Sprite | null = null;
+
   constructor(options: LevelTileOptions) {
     super();
 
     const { size, label, state, onClick } = options;
     const background = new Graphics();
-    const badge = new Graphics();
+    const labelY = size * 0.38;
+    const iconSize = size * 0.28;
 
     const drawBackground = (fillColor: number): void => {
       if (background.destroyed) {
@@ -28,23 +32,25 @@ export class LevelTile extends Container {
       background.roundRect(0, 0, size, size, 10).fill(fillColor);
     };
 
-    const drawBadge = (): void => {
-      if (badge.destroyed) {
-        return;
-      }
+    const setStateIcon = (texture: Texture, tint: number): void => {
+      this.clearStateIcon();
 
-      badge.clear();
-      if (state !== 'completed') {
-        return;
-      }
+      const icon = new Sprite(texture);
+      icon.anchor.set(0.5);
+      icon.width = iconSize;
+      icon.height = iconSize;
+      icon.tint = tint;
+      icon.x = size / 2;
+      icon.y = labelY + iconSize * 0.85;
 
-      const radius = size * 0.14;
-      badge.circle(size - radius - 6, radius + 6, radius).fill(COLORS.tileCompletedBadge);
+      this.stateIcon = icon;
+      this.addChild(icon);
     };
+
+    this.on('destroy', () => this.clearStateIcon());
 
     if (state === 'locked') {
       drawBackground(COLORS.tileLocked);
-      drawBadge();
       this.addChild(background);
 
       const labelText = new Text({
@@ -52,37 +58,44 @@ export class LevelTile extends Container {
         style: {
           fill: COLORS.textMuted,
           fontFamily: FONT_FAMILY,
-          fontSize: Math.max(14, Math.floor(size * 0.18)),
+          fontSize: Math.max(20, Math.floor(size * 0.25)),
           fontWeight: '600',
         },
       });
       labelText.anchor.set(0.5);
       labelText.x = size / 2;
-      labelText.y = size / 2;
+      labelText.y = labelY;
 
-      this.addChild(labelText, badge);
+      this.addChild(labelText);
+      setStateIcon(getLockTexture(), COLORS.textMuted);
       this.eventMode = 'none';
       this.cursor = 'default';
       return;
     }
 
     drawBackground(COLORS.tile);
-    drawBadge();
 
     const labelText = new Text({
       text: label,
       style: {
         fill: COLORS.text,
         fontFamily: FONT_FAMILY,
-        fontSize: Math.max(14, Math.floor(size * 0.18)),
+        fontSize: Math.max(20, Math.floor(size * 0.25)),
         fontWeight: '600',
       },
     });
     labelText.anchor.set(0.5);
     labelText.x = size / 2;
-    labelText.y = size / 2;
+    labelText.y = labelY;
 
-    this.addChild(background, labelText, badge);
+    this.addChild(background, labelText);
+
+    if (state === 'completed') {
+      setStateIcon(getStarWinTexture(), COLORS.victoryStarTint);
+    } else {
+      setStateIcon(getStarTexture(), COLORS.elementFill);
+    }
+
     this.eventMode = 'static';
     this.cursor = 'pointer';
     this.hitArea = new Rectangle(0, 0, size, size);
@@ -90,5 +103,17 @@ export class LevelTile extends Container {
     this.on('pointerover', () => drawBackground(COLORS.tileHover));
     this.on('pointerout', () => drawBackground(COLORS.tile));
     this.on('pointertap', onClick);
+  }
+
+  private clearStateIcon(): void {
+    if (!this.stateIcon) {
+      return;
+    }
+
+    if (!this.stateIcon.destroyed) {
+      this.removeChild(this.stateIcon);
+      this.stateIcon.destroy();
+    }
+    this.stateIcon = null;
   }
 }

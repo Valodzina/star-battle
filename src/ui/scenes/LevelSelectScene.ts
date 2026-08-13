@@ -1,4 +1,4 @@
-import { Container, Graphics, Rectangle, Text } from 'pixi.js';
+import { Container, Graphics, Rectangle, Sprite, Text } from 'pixi.js';
 import type { FederatedPointerEvent } from 'pixi.js';
 import gsap from 'gsap';
 import type { Difficulty } from '../../types/level';
@@ -7,7 +7,7 @@ import type { LevelManager } from '../../services/LevelManager';
 import type { ProgressManager } from '../../services/ProgressManager';
 import { COLORS } from '../colors';
 import { FONT_FAMILY, SCREEN_PADDING, TILE_GAP } from '../constants';
-import { Button } from '../components/Button';
+import { getBackTexture } from '../gameAssets';
 import { LevelTile } from '../components/LevelTile';
 import type { IScene } from './IScene';
 
@@ -16,8 +16,10 @@ export interface LevelSelectSceneCallbacks {
   onLevelSelected: (index: number) => void;
 }
 
-const TILE_WIDTH = 120;
-const TILE_HEIGHT = 120;
+const DEFAULT_TILE_WIDTH = 120;
+const DEFAULT_TILE_HEIGHT = 120;
+const ICON_BUTTON_SIZE = 40;
+const ACTIVE_TINT = 0x44505c;
 const PADDING = TILE_GAP;
 const HEADER_OFFSET = 72;
 const OVERSCROLL_FRICTION = 0.3;
@@ -44,6 +46,8 @@ export class LevelSelectScene extends Container implements IScene {
   private contentHeight = 0;
   private minY = 0;
   private cols = 1;
+  private tileWidth = DEFAULT_TILE_WIDTH;
+  private tileHeight = DEFAULT_TILE_HEIGHT;
 
   private isDragging = false;
   private didDrag = false;
@@ -88,15 +92,20 @@ export class LevelSelectScene extends Container implements IScene {
     const meta = DIFFICULTY_META.find((entry) => entry.difficulty === this.difficulty);
     const levelCount = this.levelManager.getLevelCount(this.difficulty);
 
-    const backButton = new Button({
-      width: 96,
-      height: 44,
-      label: 'Back',
-      color: COLORS.buttonBack,
-      onClick: () => this.callbacks.onBackSelected(),
-    });
+    const availableWidth = width - SCREEN_PADDING * 2;
+    const maxTileWidth = (availableWidth - TILE_GAP * 2) / 3;
+    this.tileWidth = Math.min(DEFAULT_TILE_WIDTH, maxTileWidth);
+    this.tileHeight = this.tileWidth * (DEFAULT_TILE_HEIGHT / DEFAULT_TILE_WIDTH);
+
+    const backButton = new Sprite(getBackTexture());
+    backButton.width = ICON_BUTTON_SIZE;
+    backButton.height = ICON_BUTTON_SIZE;
     backButton.x = SCREEN_PADDING;
     backButton.y = SCREEN_PADDING;
+    backButton.tint = ACTIVE_TINT;
+    backButton.eventMode = 'static';
+    backButton.cursor = 'pointer';
+    backButton.on('pointertap', () => this.callbacks.onBackSelected());
     this.addChild(backButton);
 
     const header = new Text({
@@ -114,15 +123,15 @@ export class LevelSelectScene extends Container implements IScene {
     this.addChild(header);
 
     this.contentTop = SCREEN_PADDING + HEADER_OFFSET;
-    const contentWidth = width - SCREEN_PADDING * 2;
+    const contentWidth = availableWidth;
     this.viewHeight = Math.max(0, height - this.contentTop - SCREEN_PADDING);
-    this.cols = Math.max(1, Math.floor((contentWidth + PADDING) / (TILE_WIDTH + PADDING)));
+    this.cols = Math.max(1, Math.floor((contentWidth + PADDING) / (this.tileWidth + PADDING)));
 
     const totalRows = Math.ceil(levelCount / this.cols);
-    this.contentHeight = totalRows * (TILE_HEIGHT + PADDING) + PADDING;
+    this.contentHeight = totalRows * (this.tileHeight + PADDING) + PADDING;
     this.minY = Math.min(0, this.viewHeight - this.contentHeight);
 
-    const gridWidth = this.cols * TILE_WIDTH + Math.max(0, this.cols - 1) * PADDING;
+    const gridWidth = this.cols * this.tileWidth + Math.max(0, this.cols - 1) * PADDING;
     const gridOffsetX = SCREEN_PADDING + (contentWidth - gridWidth) / 2;
 
     const scrollMask = new Graphics()
@@ -160,8 +169,8 @@ export class LevelSelectScene extends Container implements IScene {
       const row = Math.floor(index / this.cols);
       const column = index % this.cols;
       const tile = new LevelTile({
-        size: TILE_WIDTH,
-        label: `Level ${index + 1}`,
+        size: this.tileWidth,
+        label: String(index + 1),
         state,
         onClick: () => {
           if (this.didDrag) {
@@ -170,8 +179,8 @@ export class LevelSelectScene extends Container implements IScene {
           this.callbacks.onLevelSelected(index);
         },
       });
-      tile.x = column * (TILE_WIDTH + PADDING);
-      tile.y = PADDING + row * (TILE_HEIGHT + PADDING);
+      tile.x = column * (this.tileWidth + PADDING);
+      tile.y = PADDING + row * (this.tileHeight + PADDING);
       scrollContainer.addChild(tile);
     }
 
@@ -291,7 +300,7 @@ export class LevelSelectScene extends Container implements IScene {
     let targetOffset = 0;
     if (targetIndex >= 0) {
       const row = Math.floor(targetIndex / this.cols);
-      targetOffset = -(PADDING + row * (TILE_HEIGHT + PADDING));
+      targetOffset = -(PADDING + row * (this.tileHeight + PADDING));
     }
 
     targetOffset = Math.max(this.minY, Math.min(0, targetOffset));
@@ -353,6 +362,8 @@ export class LevelSelectScene extends Container implements IScene {
     this.contentHeight = 0;
     this.minY = 0;
     this.cols = 1;
+    this.tileWidth = DEFAULT_TILE_WIDTH;
+    this.tileHeight = DEFAULT_TILE_HEIGHT;
   }
 
   private trackTween(tween: gsap.core.Tween): void {
