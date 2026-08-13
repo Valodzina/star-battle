@@ -26,15 +26,11 @@ const PADDING = TILE_GAP;
 const HEADER_OFFSET = 72;
 const OVERSCROLL_FRICTION = 0.3;
 const DRAG_THRESHOLD = 8;
-const MOMENTUM_DURATION = 0.55;
+const MOMENTUM_MULTIPLIER = 150; // px/ms → projected px
+const STALE_VELOCITY_MS = 50;
+const MOMENTUM_EASE_DURATION = 0.5;
 const FOCUS_DURATION = 0.45;
-const SCROLL_OFFSET = 1;
-const VELOCITY_SAMPLE_WINDOW_MS = 100;
-
-interface VelocitySample {
-  time: number;
-  y: number;
-}
+const SCROLL_OFFSET = 10;
 
 export class LevelSelectScene extends Container implements IScene {
   private readonly difficulty: Difficulty;
@@ -56,9 +52,10 @@ export class LevelSelectScene extends Container implements IScene {
   private isDragging = false;
   private didDrag = false;
   private dragPointerId: number | null = null;
-  private lastPointerY = 0;
   private dragStartY = 0;
-  private velocitySamples: VelocitySample[] = [];
+  private lastDragY = 0;
+  private lastDragTime = 0;
+  private velocityY = 0;
 
   constructor(
     difficulty: Difficulty,
@@ -226,13 +223,15 @@ export class LevelSelectScene extends Container implements IScene {
 
   private bindScrollEvents(scrollContainer: Container): void {
     scrollContainer.on('pointerdown', (event: FederatedPointerEvent) => {
+      gsap.killTweensOf(scrollContainer);
       this.killActiveTweens();
       this.isDragging = true;
       this.didDrag = false;
       this.dragPointerId = event.pointerId;
-      this.lastPointerY = event.global.y;
       this.dragStartY = event.global.y;
-      this.velocitySamples = [{ time: performance.now(), y: this.getScrollOffset() }];
+      this.lastDragY = event.global.y;
+      this.lastDragTime = performance.now();
+      this.velocityY = 0;
       scrollContainer.cursor = 'grabbing';
     });
 
@@ -241,24 +240,27 @@ export class LevelSelectScene extends Container implements IScene {
         return;
       }
 
-      const delta = (event.global.y - this.lastPointerY) / this.contentScale;
-      this.lastPointerY = event.global.y;
+      const now = performance.now();
+      const dt = now - this.lastDragTime;
+      const dy = (event.global.y - this.lastDragY) / this.contentScale;
+
+      if (dt > 0) {
+        this.velocityY = dy / dt;
+      }
 
       if (Math.abs(event.global.y - this.dragStartY) > DRAG_THRESHOLD) {
         this.didDrag = true;
       }
 
       const offset = this.getScrollOffset();
-      const proposed = offset + delta;
+      const proposed = offset + dy;
       const appliedDelta =
-        proposed > 0 || proposed < this.minY ? delta * OVERSCROLL_FRICTION : delta;
+        proposed > 0 || proposed < this.minY ? dy * OVERSCROLL_FRICTION : dy;
       const nextOffset = offset + appliedDelta;
 
       this.scrollContainer.y = this.contentTop + nextOffset;
-      this.recordVelocitySample(nextOffset);
-      this.velocitySamples = this.velocitySamples.filter(
-        (sample) => performance.now() - sample.time <= VELOCITY_SAMPLE_WINDOW_MS,
-      );
+      this.lastDragY = event.global.y;
+      this.lastDragTime = now;
     });
 
     const endDrag = (event: FederatedPointerEvent): void => {
@@ -282,14 +284,18 @@ export class LevelSelectScene extends Container implements IScene {
     this.dragPointerId = null;
     this.scrollContainer.cursor = 'grab';
 
+    if (performance.now() - this.lastDragTime > STALE_VELOCITY_MS) {
+      this.velocityY = 0;
+    }
+
     const offset = this.getScrollOffset();
-    const velocity = this.computeVelocity();
 
     let targetOffset: number;
     if (offset > 0 || offset < this.minY) {
       targetOffset = offset > 0 ? 0 : this.minY;
     } else {
-      targetOffset = Math.max(this.minY, Math.min(0, offset + velocity * MOMENTUM_DURATION));
+      targetOffset = offset + this.velocityY * MOMENTUM_MULTIPLIER;
+      targetOffset = Math.max(this.minY, Math.min(0, targetOffset));
     }
 
     const targetY = this.contentTop + targetOffset;
@@ -298,13 +304,10 @@ export class LevelSelectScene extends Container implements IScene {
       return;
     }
 
-    const distance = Math.abs(targetY - this.scrollContainer.y);
-    const duration = Math.min(MOMENTUM_DURATION, Math.max(0.25, distance / 1200));
-
     this.trackTween(
       gsap.to(this.scrollContainer, {
         y: targetY,
-        duration,
+        duration: MOMENTUM_EASE_DURATION,
         ease: 'power3.out',
       }),
     );
@@ -363,37 +366,15 @@ export class LevelSelectScene extends Container implements IScene {
     return this.scrollContainer.y - this.contentTop;
   }
 
-  private recordVelocitySample(offset: number): void {
-    this.velocitySamples.push({ time: performance.now(), y: offset });
-  }
-
-  private computeVelocity(): number {
-    if (this.velocitySamples.length < 2) {
-      return 0;
-    }
-
-    const first = this.velocitySamples[0];
-    const last = this.velocitySamples[this.velocitySamples.length - 1];
-    if (!first || !last) {
-      return 0;
-    }
-
-    const dt = last.time - first.time;
-    if (dt <= 0) {
-      return 0;
-    }
-
-    // px/ms → px/s (offset space)
-    return ((last.y - first.y) / dt) * 1000;
-  }
-
   private clearScrollState(): void {
     this.scrollContainer = null;
     this.contentScale = 1;
     this.isDragging = false;
     this.didDrag = false;
     this.dragPointerId = null;
-    this.velocitySamples = [];
+    this.lastDragY = 0;
+    this.lastDragTime = 0;
+    this.velocityY = 0;
     this.contentTop = 0;
     this.viewHeight = 0;
     this.contentHeight = 0;
