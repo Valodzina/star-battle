@@ -4,8 +4,8 @@ import { DIFFICULTY_META } from '../../types/level';
 import type { LevelManager } from '../../services/LevelManager';
 import type { ProgressManager } from '../../services/ProgressManager';
 import { COLORS } from '../colors';
-import { BUTTON_GAP, FONT_FAMILY, SCREEN_PADDING } from '../constants';
-import { Button } from '../components/Button';
+import { BUTTON_GAP, SCREEN_PADDING, TITLE_FONT_FAMILY } from '../constants';
+import { MainMenuButton } from '../components/MainMenuButton';
 import type { IScene } from './IScene';
 import { getStarWinTexture } from '../gameAssets';
 
@@ -50,9 +50,11 @@ export class MainMenuScene extends Container implements IScene {
       style: {
         align: 'center',
         fill: COLORS.title,
-        fontFamily: FONT_FAMILY,
-        fontSize: 42,
-        fontWeight: '700',
+        fontFamily: TITLE_FONT_FAMILY,
+        fontSize: 55,
+        letterSpacing: 1.6,
+        lineHeight: 45,
+        fontWeight: '800',
       },
     });
     title.anchor.set(0.5);
@@ -113,16 +115,14 @@ export class MainMenuScene extends Container implements IScene {
     menu.y = height / 2 - totalHeight / 2 + 50;
 
     DIFFICULTY_META.forEach((meta, index) => {
-      const button = new Button({
+      const button = new MainMenuButton({
         width: buttonWidth,
         height: buttonHeight,
         label: meta.label,
         subtitle: meta.subtitle,
-        color: meta.color,
-        progress: {
-          completed: this.progressManager.getCompletedCount(meta.difficulty),
-          total: this.levelManager.getLevelCount(meta.difficulty),
-        },
+        difficultyColor: meta.color,
+        completed: this.progressManager.getCompletedCount(meta.difficulty),
+        total: this.levelManager.getLevelCount(meta.difficulty),
         onClick: () => this.callbacks.onDifficultySelected(meta.difficulty),
       });
       button.y = index * (buttonHeight + BUTTON_GAP);

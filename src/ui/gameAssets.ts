@@ -1,10 +1,18 @@
 import { Assets, Texture } from 'pixi.js';
+import interMediumUrl from '../assets/fonts/Inter28pt-Medium.woff2';
+import interSemiBoldUrl from '../assets/fonts/Inter28pt-SemiBold.woff2';
+import montserratExtraBoldUrl from '../assets/fonts/Montserrat-ExtraBold.woff2';
 import starImageUrl from '../assets/images/star-2.png';
 import starWinImageUrl from '../assets/images/star-win.png';
 import undoImageUrl from '../assets/images/undo.png';
 import binImageUrl from '../assets/images/bin-1.png';
 import backImageUrl from '../assets/images/back.png';
 import lockImageUrl from '../assets/images/lock.png';
+import {
+  INTER_MEDIUM_FONT_FAMILY,
+  INTER_SEMIBOLD_FONT_FAMILY,
+  TITLE_FONT_FAMILY,
+} from './constants';
 
 export const STAR_TEXTURE_ID = 'star';
 export const STAR_WIN_TEXTURE_ID = 'star-win';
@@ -12,6 +20,9 @@ export const UNDO_TEXTURE_ID = 'undo';
 export const BIN_TEXTURE_ID = 'bin-1';
 export const BACK_TEXTURE_ID = 'back';
 export const LOCK_TEXTURE_ID = 'lock';
+export const MONTSERRAT_EXTRABOLD_FONT_ID = 'montserrat-extrabold';
+export const INTER_SEMIBOLD_FONT_ID = 'inter-semibold';
+export const INTER_MEDIUM_FONT_ID = 'inter-medium';
 
 export async function loadGameAssets(): Promise<void> {
   await Assets.load([
@@ -21,6 +32,21 @@ export async function loadGameAssets(): Promise<void> {
     { alias: BIN_TEXTURE_ID, src: binImageUrl },
     { alias: BACK_TEXTURE_ID, src: backImageUrl },
     { alias: LOCK_TEXTURE_ID, src: lockImageUrl },
+    {
+      alias: MONTSERRAT_EXTRABOLD_FONT_ID,
+      src: montserratExtraBoldUrl,
+      data: { family: TITLE_FONT_FAMILY },
+    },
+    {
+      alias: INTER_SEMIBOLD_FONT_ID,
+      src: interSemiBoldUrl,
+      data: { family: INTER_SEMIBOLD_FONT_FAMILY },
+    },
+    {
+      alias: INTER_MEDIUM_FONT_ID,
+      src: interMediumUrl,
+      data: { family: INTER_MEDIUM_FONT_FAMILY },
+    },
   ]);
 }
 

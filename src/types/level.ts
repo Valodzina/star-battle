@@ -42,19 +42,19 @@ export const DIFFICULTY_ORDER: readonly Difficulty[] = ['easy', 'medium', 'hard'
 export const DIFFICULTY_META: readonly DifficultyMeta[] = [
   {
     difficulty: 'easy',
-    label: 'Easy',
+    label: 'EASY',
     subtitle: '6×6',
     color: COLORS.buttonEasy,
   },
   {
     difficulty: 'medium',
-    label: 'Medium',
+    label: 'MEDIUM',
     subtitle: '10×10',
     color: COLORS.buttonMedium,
   },
   {
     difficulty: 'hard',
-    label: 'Hard',
+    label: 'HARD',
     subtitle: '10×10 · 2 stars',
     color: COLORS.buttonHard,
   },

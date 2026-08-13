@@ -2,14 +2,19 @@ export const COLORS = {
   background: 0xb0b9c2,
 
 
-  buttonEasy: 0x8b9da2,
-  buttonMedium: 0xb08c79,
-  buttonHard: 0x918dab,
+  // buttonEasy: 0x83A77E,
+  // buttonMedium: 0x78A7BC,
+  // buttonHard: 0x9989B5,
 
-  menuButton: 0xa8aeb6,
-  menuButtonDark: 0x6e7b8d,
-  menuButtonTitle: 0x454e5b,
-  menuButtonText: 0x6c7581,
+  buttonEasy:   0x789D72,
+buttonMedium: 0x6E9FB8,
+buttonHard:   0x907FAF,
+
+  menuButton: 0xc4cacf,
+  menuButtonDark: 0xaeb7be,
+  menuButtonText : 0x2d3740,
+  menuButtonSubText : 0x44505c,
+
 
 
 
@@ -24,7 +29,7 @@ export const COLORS = {
   tileCompletedBadge: 0xffd700,
   text: 0xffffff,
   textMuted: 0xb0b0c8,
-  title: 0x44505c,
+  title: 0x2d3740,
 
   //gridLine: 0xe8e8e8,
   // regionBorder: 0xe8e8e8,
@@ -40,7 +45,7 @@ export const COLORS = {
   victoryCardShadow: 0x000000,
   victoryCardTitle: 0x2a2a4a,
   victoryCardTime: 0x44505c,
-  victoryStarTint: 0xf0c38d,
+  victoryStarTint: 0xecca92,
   answerColor: 0x000000,
 } as const;
 
