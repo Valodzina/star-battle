@@ -1,0 +1,55 @@
+name: Deploy to GitHub Pages
+
+on:
+  # Запускать сборку при каждом пуше в ветку main
+  push:
+    branches: ['main']
+  # Позволяет запускать сборку вручную из интерфейса GitHub
+  workflow_dispatch:
+
+# Настройки прав доступа для токена GITHUB_TOKEN (нужно для деплоя на Pages)
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Отмена предыдущих сборок, если ты быстро запушишь несколько изменений подряд
+concurrency:
+  group: 'pages'
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      # Установка зависимостей. Используем ci, так как у тебя есть package-lock.json
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # Папка, куда Vite сохраняет готовую сборку (по умолчанию dist)
+          path: './dist'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
