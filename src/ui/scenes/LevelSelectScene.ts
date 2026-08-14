@@ -22,6 +22,7 @@ const DEFAULT_TILE_HEIGHT = 120;
 const MIN_LAYOUT_WIDTH =
   SCREEN_PADDING * 2 + DEFAULT_TILE_WIDTH * 3 + TILE_GAP * 2;
 const ICON_BUTTON_SIZE = 30;
+const BACK_HIT_SIZE = 96;
 const PADDING = TILE_GAP;
 const HEADER_OFFSET = 72;
 const OVERSCROLL_FRICTION = 0.3;
@@ -123,15 +124,23 @@ export class LevelSelectScene extends Container implements IScene {
       .fill(headerColor);
     headerContainer.addChild(headerBackground);
 
-    const backButton = new Sprite(getBackTexture());
-    backButton.width = ICON_BUTTON_SIZE;
-    backButton.height = ICON_BUTTON_SIZE;
-    backButton.x = SCREEN_PADDING*2;
-    backButton.y = SCREEN_PADDING*2;
-    backButton.anchor.set(0.5);
-    backButton.tint = COLORS.title
+    const backIcon = new Sprite(getBackTexture());
+    backIcon.width = ICON_BUTTON_SIZE;
+    backIcon.height = ICON_BUTTON_SIZE;
+    backIcon.anchor.set(0.5);
+    backIcon.tint = COLORS.title;
+
+    const backButton = new Container();
     backButton.eventMode = 'static';
     backButton.cursor = 'pointer';
+    backButton.hitArea = new Rectangle(
+      -BACK_HIT_SIZE / 2,
+      -BACK_HIT_SIZE / 2,
+      BACK_HIT_SIZE,
+      BACK_HIT_SIZE,
+    );
+    backButton.position.set(SCREEN_PADDING * 2, SCREEN_PADDING * 2);
+    backButton.addChild(backIcon);
     backButton.on('pointertap', () => this.callbacks.onBackSelected());
     headerContainer.addChild(backButton);
 

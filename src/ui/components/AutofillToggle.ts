@@ -4,12 +4,12 @@ import { COLORS } from '../colors';
 import { blendColor } from '../colorUtils';
 import { getStarWinTexture } from '../gameAssets';
 
-export const AUTOFILL_TOGGLE_WIDTH = 80;
-export const AUTOFILL_TOGGLE_HEIGHT = 40;
+export const AUTOFILL_TOGGLE_WIDTH = 200;
+export const AUTOFILL_TOGGLE_HEIGHT = 90;
 
-const STAR_SIZE = 21;
-const DOT_RADIUS = 2.0;
-const DOT_ORBIT = 10;
+const STAR_SIZE_RATIO = 21 / 40;
+const DOT_RADIUS_RATIO = 2 / 40;
+const DOT_ORBIT_RATIO = 10 / 40;
 
 const ANIM_DURATION = 0.3;
 const ANIM_EASE = 'power2.inOut';
@@ -51,8 +51,11 @@ export class AutofillToggle extends Container {
     this.toggleHeight = height;
     this.colorState.t = isActive ? 1 : 0;
 
-    const starHalf = STAR_SIZE / 2;
-    const padding = (height - STAR_SIZE) / 1.5;
+    const starSize = height * STAR_SIZE_RATIO;
+    const dotRadius = height * DOT_RADIUS_RATIO;
+    const dotOrbit = height * DOT_ORBIT_RATIO;
+    const starHalf = starSize / 2;
+    const padding = (height - starSize) / 1.5;
     this.leftX = padding + starHalf;
     this.rightX = width - padding - starHalf;
     const centerY = height / 2;
@@ -64,20 +67,20 @@ export class AutofillToggle extends Container {
     this.dotsContainer.alpha = isActive ? 1 : 0;
 
     const dotOffsets: Array<[number, number]> = [
-      [-DOT_ORBIT, -DOT_ORBIT],
-      [-DOT_ORBIT, DOT_ORBIT],
-      [DOT_ORBIT, -DOT_ORBIT],
-      [DOT_ORBIT, DOT_ORBIT],
+      [-dotOrbit, -dotOrbit],
+      [-dotOrbit, dotOrbit],
+      [dotOrbit, -dotOrbit],
+      [dotOrbit, dotOrbit],
     ];
     for (const [dx, dy] of dotOffsets) {
-      const dot = new Graphics().circle(dx, dy, DOT_RADIUS).fill(COLORS.dotFill);
+      const dot = new Graphics().circle(dx, dy, dotRadius).fill(COLORS.dotFill);
       this.dotsContainer.addChild(dot);
     }
 
     const star = new Sprite(getStarWinTexture());
     star.anchor.set(0.5);
-    star.width = STAR_SIZE;
-    star.height = STAR_SIZE;
+    star.width = starSize;
+    star.height = starSize;
     star.tint = COLORS.victoryStarTint;
 
     this.thumb = new Container();

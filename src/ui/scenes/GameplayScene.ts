@@ -1,25 +1,25 @@
 import { Container } from 'pixi.js';
 import type { CellState, GameplayState } from '../../types/level';
 import type { ProgressManager } from '../../services/ProgressManager';
-import {
-  GAMEPLAY_FOOTER_HEIGHT,
-  GAMEPLAY_HEADER_HEIGHT,
-  LEVEL_NAV_GAP,
-  LEVEL_NAV_HEIGHT,
-  SCREEN_PADDING,
-} from '../constants';
+import { LEVEL_NAV_GAP, LEVEL_NAV_HEIGHT } from '../constants';
 import { GameBoard } from '../components/GameBoard';
 import { GameplayHeader } from '../components/GameplayHeader';
-import {
-  GAMEPLAY_FOOTER_CONTENT_WIDTH,
-  GameplayFooter,
-} from '../components/GameplayFooter';
+import { GameplayFooter } from '../components/GameplayFooter';
+import { LevelNavigation } from '../components/LevelNavigation';
 import { VictoryOverlay } from '../components/VictoryOverlay';
 import type { IScene } from './IScene';
 
+// DEBUG: show the victory overlay immediately without completing a level.
+const DEBUG_SHOW_VICTORY = false;
+
+const LOGICAL_WIDTH = 1080;
+const LOGICAL_HEIGHT = 1520;
+const VICTORY_LOGICAL_WIDTH = 1080;
+const VICTORY_LOGICAL_HEIGHT = 1200;
+const TOP_PAD = 40;
+const TOP_BAND = 120;
+const BOTTOM_BAND = 160;
 const BASE_CELL_SIZE = 64;
-const HEADER_BUTTON_HEIGHT = 40;
-const FOOTER_BUTTON_HEIGHT = 40;
 
 const LEVEL_ID_PATTERN = /^(easy|medium|hard)_(\d+)$/;
 
@@ -67,18 +67,17 @@ export class GameplayScene extends Container implements IScene {
   private readonly callbacks: GameplaySceneCallbacks;
   private readonly progressManager: ProgressManager;
 
-  private currentWidth = 0;
-  private currentHeight = 0;
-  private isPortrait = false;
+  private topContainer!: GameplayHeader;
+  private centerContainer!: Container;
+  private bottomContainer!: GameplayFooter;
+  private victoryContainer!: Container;
 
   private gameBoard!: GameBoard;
-  private header!: GameplayHeader;
-  private footer!: GameplayFooter;
+  private levelNavigation!: LevelNavigation;
   private victoryOverlay!: VictoryOverlay;
 
   private isAutoFillEnabled: boolean;
   private lastElapsedSeconds = 0;
-  private logicalBoardWidth = 0;
   private hasPreviousLevel = false;
   private hasNextLevel = false;
 
@@ -108,100 +107,48 @@ export class GameplayScene extends Container implements IScene {
   }
 
   resize(screenWidth: number, screenHeight: number): void {
-    this.currentWidth = screenWidth;
-    this.currentHeight = screenHeight;
-    this.isPortrait = this.currentHeight > this.currentWidth;
-
-    const { level, isVictory } = this.gameplay;
-    const size = level.size;
-
-    const boardAreaTop = SCREEN_PADDING + GAMEPLAY_HEADER_HEIGHT;
-    const boardAreaWidth = this.currentWidth - SCREEN_PADDING * 2;
-    const boardBottomReserve = GAMEPLAY_FOOTER_HEIGHT;
-    const boardAreaHeight =
-      this.currentHeight -
-      boardAreaTop -
-      SCREEN_PADDING -
-      boardBottomReserve -
-      LEVEL_NAV_HEIGHT -
-      LEVEL_NAV_GAP;
-
-    const displayCellSize = Math.floor(
-      Math.min(boardAreaWidth / size, boardAreaHeight / size),
+    const scale = Math.min(screenWidth / LOGICAL_WIDTH, screenHeight / LOGICAL_HEIGHT);
+    const victoryScale = Math.min(
+      screenWidth / VICTORY_LOGICAL_WIDTH,
+      screenHeight / VICTORY_LOGICAL_HEIGHT,
     );
-    const displayBoardSize = displayCellSize * size;
-    const boardScale =
-      this.logicalBoardWidth > 0 ? displayBoardSize / this.logicalBoardWidth : 1;
+    const virtualHeight = screenHeight / scale;
+    const offsetX = (screenWidth - LOGICAL_WIDTH * scale) / 2;
 
-    const boardX = (this.currentWidth - displayBoardSize) / 2;
-    const boardY =
-      boardAreaTop +
-      LEVEL_NAV_HEIGHT +
-      LEVEL_NAV_GAP +
-      (boardAreaHeight - displayBoardSize) / 2;
-
-    this.gameBoard.scale.set(boardScale);
-    this.gameBoard.position.set(boardX, boardY);
-
-    const boardLeftX = this.gameBoard.x;
-    const boardRightX =
-      this.gameBoard.x + this.gameBoard.logicalSize * this.gameBoard.scale.x;
-    const boardBottom =
-      this.gameBoard.y + this.gameBoard.logicalSize * this.gameBoard.scale.y;
-    const levelNavTop = this.gameBoard.y - LEVEL_NAV_HEIGHT - LEVEL_NAV_GAP;
-
-    const availableTopHeight = Math.max(0, levelNavTop - SCREEN_PADDING);
-    const footerBandTop = boardBottom;
-    const footerBandBottom = this.currentHeight - SCREEN_PADDING;
-    const availableBottomHeight = Math.max(0, footerBandBottom - footerBandTop);
-
-    const widthScale = Math.min(1, displayBoardSize / GAMEPLAY_FOOTER_CONTENT_WIDTH);
-    const heightScale = Math.min(
-      1,
-      availableTopHeight / HEADER_BUTTON_HEIGHT,
-      availableBottomHeight / FOOTER_BUTTON_HEIGHT,
-    );
-    const uiScale = Math.min(widthScale, heightScale);
-
-    const scaledHeaderHeight = HEADER_BUTTON_HEIGHT * uiScale;
-    const headerY =
-      SCREEN_PADDING + Math.max(0, (availableTopHeight - scaledHeaderHeight) / 2);
-
-    const scaledFooterHeight = FOOTER_BUTTON_HEIGHT * uiScale;
-    const bottomSafePadding = SCREEN_PADDING;
-    let footerY: number;
-    if (this.isPortrait) {
-      footerY = this.currentHeight - bottomSafePadding - scaledFooterHeight;
-      footerY = Math.max(footerY, boardBottom);
-    } else {
-      footerY =
-        footerBandTop + Math.max(0, (availableBottomHeight - scaledFooterHeight) / 2);
+    for (const container of [this.topContainer, this.centerContainer, this.bottomContainer]) {
+      container.scale.set(scale);
     }
-    const footerCenterY = footerY + scaledFooterHeight / 2;
+    this.victoryContainer.scale.set(victoryScale);
 
-    this.header.layout(boardLeftX, boardRightX, uiScale, headerY);
-    this.header.layoutLevelNav(boardLeftX, this.gameBoard.y, boardScale);
-    this.footer.layout(boardLeftX, boardRightX, uiScale, footerCenterY);
+    this.topContainer.position.set(offsetX, TOP_PAD * scale);
+    this.bottomContainer.position.set(offsetX, (virtualHeight - BOTTOM_BAND) * scale);
 
-    this.victoryOverlay.position.set(this.currentWidth / 2, this.currentHeight / 2);
+    const centerBandTop = TOP_PAD + TOP_BAND;
+    const centerBandBottom = virtualHeight - BOTTOM_BAND;
+    this.centerContainer.position.set(
+      screenWidth / 2,
+      ((centerBandTop + centerBandBottom) / 2) * scale,
+    );
 
-    if (isVictory) {
+    this.victoryContainer.position.set(screenWidth / 2, screenHeight / 2);
+
+    if (this.gameplay.isVictory || DEBUG_SHOW_VICTORY) {
       this.showVictoryOverlay();
     }
   }
 
   updateTimerDisplay(seconds: number): void {
     this.lastElapsedSeconds = seconds;
-    this.header.updateTimer(formatTime(seconds));
+    this.topContainer.updateTimer(formatTime(seconds));
   }
 
   setUndoEnabled(enabled: boolean): void {
-    this.footer.setUndoEnabled(enabled);
+    this.bottomContainer.setUndoEnabled(enabled);
   }
 
   setAutoFillEnabled(enabled: boolean): void {
     this.isAutoFillEnabled = enabled;
-    this.footer.setAutoFillEnabled(enabled);
+    this.bottomContainer.setAutoFillEnabled(enabled);
   }
 
   updateGameplayBoard(
@@ -210,9 +157,9 @@ export class GameplayScene extends Container implements IScene {
     isVictory: boolean,
   ): void {
     this.gameBoard.updateBoardState(boardState);
-    this.header.updateStars(remainingElements);
+    this.topContainer.updateStars(remainingElements);
 
-    if (isVictory) {
+    if (isVictory || DEBUG_SHOW_VICTORY) {
       this.showVictoryOverlay();
     } else {
       this.victoryOverlay.hide();
@@ -236,6 +183,23 @@ export class GameplayScene extends Container implements IScene {
       nextLevelId !== null &&
       this.progressManager.isUnlocked(nextLevelId);
 
+    this.topContainer = new GameplayHeader({
+      initialTimerText: formatTime(elapsedSeconds),
+      initialStars: remainingElements,
+      logicalWidth: LOGICAL_WIDTH,
+      onBackClicked: () => this.callbacks.onBackToLevels(),
+    });
+
+    this.centerContainer = new Container();
+    this.bottomContainer = new GameplayFooter({
+      isAutoFillEnabled: this.isAutoFillEnabled,
+      logicalWidth: LOGICAL_WIDTH,
+      onUndoClicked: () => this.callbacks.onUndoClick(),
+      onClearClicked: () => this.callbacks.onClearBoard(),
+      onAutofillToggled: () => this.callbacks.onAutoFillToggle(),
+    });
+    this.victoryContainer = new Container();
+
     this.gameBoard = new GameBoard({
       cellSize: BASE_CELL_SIZE,
       size: level.size,
@@ -245,30 +209,44 @@ export class GameplayScene extends Container implements IScene {
       onDragErase: (row, col) => this.callbacks.onDragErase(row, col),
       onInteractionEnd: () => this.callbacks.onInteractionEnd(),
     });
-    this.logicalBoardWidth = this.gameBoard.logicalSize;
 
-    this.header = new GameplayHeader({
-      initialTimerText: formatTime(elapsedSeconds),
-      initialStars: remainingElements,
+    const boardBaseWidth = this.gameBoard.logicalSize;
+    const reserved = TOP_PAD + TOP_BAND + BOTTOM_BAND + LEVEL_NAV_HEIGHT + LEVEL_NAV_GAP;
+    const targetBoardWidth = Math.min(LOGICAL_WIDTH * 0.9, LOGICAL_HEIGHT - reserved);
+
+    this.gameBoard.pivot.set(boardBaseWidth / 2, boardBaseWidth / 2);
+    this.gameBoard.scale.set(targetBoardWidth / boardBaseWidth);
+    this.gameBoard.x = LOGICAL_WIDTH / 2;
+    this.gameBoard.y = LEVEL_NAV_HEIGHT + LEVEL_NAV_GAP + targetBoardWidth / 2;
+
+    this.levelNavigation = new LevelNavigation({
       levelNumber: levelIndex + 1,
+      logicalBoardWidth: targetBoardWidth,
       hasPreviousLevel: this.hasPreviousLevel,
       hasNextLevel: this.hasNextLevel,
-      logicalBoardWidth: this.logicalBoardWidth,
-      onBackClicked: () => this.callbacks.onBackToLevels(),
-      onPrevLevel: () => this.callbacks.onPreviousLevel(),
-      onNextLevel: () => this.callbacks.onNextLevel(),
+      onPrevClick: () => this.callbacks.onPreviousLevel(),
+      onNextClick: () => this.callbacks.onNextLevel(),
     });
+    this.levelNavigation.x = (LOGICAL_WIDTH - targetBoardWidth) / 2;
+    this.levelNavigation.y = 0;
 
-    this.footer = new GameplayFooter({
-      isAutoFillEnabled: this.isAutoFillEnabled,
-      onUndoClicked: () => this.callbacks.onUndoClick(),
-      onClearClicked: () => this.callbacks.onClearBoard(),
-      onAutofillToggled: () => this.callbacks.onAutoFillToggle(),
-    });
+    const clusterHeight = LEVEL_NAV_HEIGHT + LEVEL_NAV_GAP + targetBoardWidth;
+    this.centerContainer.pivot.set(LOGICAL_WIDTH / 2, clusterHeight / 2);
+    this.centerContainer.addChild(this.levelNavigation, this.gameBoard);
 
     this.victoryOverlay = new VictoryOverlay();
+    this.victoryContainer.addChild(this.victoryOverlay);
 
-    this.addChild(this.header, this.gameBoard, this.footer, this.victoryOverlay);
+    if (DEBUG_SHOW_VICTORY) {
+      this.showVictoryOverlay();
+    }
+
+    this.addChild(
+      this.topContainer,
+      this.centerContainer,
+      this.bottomContainer,
+      this.victoryContainer,
+    );
   }
 
   refreshLevelNavigation(): void {
@@ -278,7 +256,8 @@ export class GameplayScene extends Container implements IScene {
       levelIndex < levelCount - 1 &&
       nextLevelId !== null &&
       this.progressManager.isUnlocked(nextLevelId);
-    this.header.setLevelNavEnabled(this.hasPreviousLevel, this.hasNextLevel);
+    this.levelNavigation.setPrevEnabled(this.hasPreviousLevel);
+    this.levelNavigation.setNextEnabled(this.hasNextLevel);
 
     if (this.victoryOverlay.visible) {
       this.showVictoryOverlay();

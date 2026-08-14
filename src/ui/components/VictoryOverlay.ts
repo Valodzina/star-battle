@@ -1,20 +1,18 @@
 import { Container, Graphics, Text, Sprite } from 'pixi.js';
 import gsap from 'gsap';
 import { COLORS } from '../colors';
-import { INTER_MEDIUM_FONT_FAMILY, INTER_SEMIBOLD_FONT_FAMILY } from '../constants';
-import { Button } from './Button';
+import { INTER_MEDIUM_FONT_FAMILY,TITLE_FONT_FAMILY } from '../constants';
+import { VictoryButton, VICTORY_BUTTON_HEIGHT, VICTORY_BUTTON_WIDTH } from './VictoryButton';
 import { getStarWinTexture } from '../gameAssets';
 
-const VICTORY_CARD_WIDTH = 280;
-const VICTORY_CARD_HEIGHT = 320;
-const VICTORY_CARD_RADIUS = 16;
-const VICTORY_STAR_SIZE = 96;
-const VICTORY_BUTTON_WIDTH = 200;
-const VICTORY_BUTTON_HEIGHT = 44;
+const VICTORY_CARD_WIDTH = 750;
+const VICTORY_CARD_HEIGHT = 790;
+const VICTORY_CARD_RADIUS = 32;
+const VICTORY_STAR_SIZE = 200;
 
 export class VictoryOverlay extends Container {
   private readonly timeText: Text;
-  private readonly nextButton: Button;
+  private readonly nextButton: VictoryButton;
   private actionHandler: (() => void) | null = null;
 
   constructor() {
@@ -27,7 +25,7 @@ export class VictoryOverlay extends Container {
 
     const shadow = new Graphics();
     shadow
-      .roundRect(4, 6, VICTORY_CARD_WIDTH, VICTORY_CARD_HEIGHT, VICTORY_CARD_RADIUS)
+      .roundRect(8, 12, VICTORY_CARD_WIDTH, VICTORY_CARD_HEIGHT, VICTORY_CARD_RADIUS)
       .fill({ color: COLORS.victoryCardShadow, alpha: 0.22 });
 
     const background = new Graphics();
@@ -36,50 +34,63 @@ export class VictoryOverlay extends Container {
       .fill(COLORS.victoryCard);
 
     const titleText = new Text({
-      text: 'SOLVED',
+      text: 'SOLVED!',
       style: {
-        fill: COLORS.elementFill,
-        fontFamily: INTER_SEMIBOLD_FONT_FAMILY,
-        fontSize: 36,
+        fill: COLORS.title,
+        fontFamily: TITLE_FONT_FAMILY,
+        fontSize: 100,
         fontWeight: '700',
       },
     });
     titleText.anchor.set(0.5, 0);
     titleText.x = VICTORY_CARD_WIDTH / 2;
-    titleText.y = 28;
+    titleText.y = 52;
 
     this.timeText = new Text({
       text: '',
       style: {
         fill: COLORS.elementFill,
         fontFamily: INTER_MEDIUM_FONT_FAMILY,
-        fontSize: 20,
+        fontSize: 45,
         fontWeight: '600',
       },
     });
     this.timeText.anchor.set(0.5, 0);
     this.timeText.x = VICTORY_CARD_WIDTH / 2;
-    this.timeText.y = 78;
+    this.timeText.y = 180;
+
+
+
+    const greatJobText = new Text({
+      text: 'Great Job!',
+      style: {
+        fill: COLORS.elementFill,
+        fontFamily: INTER_MEDIUM_FONT_FAMILY,
+        fontSize: 42,
+        fontWeight: '600',
+      },
+    });
+    greatJobText.anchor.set(0.5, 0);
+    greatJobText.x = VICTORY_CARD_WIDTH / 2;
+    greatJobText.y = 550;
+
 
     const starSprite = new Sprite(getStarWinTexture());
     starSprite.anchor.set(0.5);
     starSprite.width = VICTORY_STAR_SIZE;
     starSprite.height = VICTORY_STAR_SIZE;
     starSprite.x = VICTORY_CARD_WIDTH / 2;
-    starSprite.y = 170;
+    starSprite.y = 390;
     starSprite.tint = COLORS.victoryStarTint;
 
-    this.nextButton = new Button({
-      width: VICTORY_BUTTON_WIDTH,
-      height: VICTORY_BUTTON_HEIGHT,
+    this.nextButton = new VictoryButton({
       label: 'Next Level',
-      color: COLORS.menuButtonColorEasy,
       onClick: () => this.actionHandler?.(),
     });
     this.nextButton.x = (VICTORY_CARD_WIDTH - VICTORY_BUTTON_WIDTH) / 2;
-    this.nextButton.y = VICTORY_CARD_HEIGHT - VICTORY_BUTTON_HEIGHT - 28;
+    this.nextButton.y = VICTORY_CARD_HEIGHT - VICTORY_BUTTON_HEIGHT - 56;
 
-    this.addChild(shadow, background, titleText, this.timeText, starSprite, this.nextButton);
+    this.addChild(shadow, background, titleText, this.timeText, starSprite, this.nextButton, greatJobText);
   }
 
   show(timeString: string, hasNextLevel: boolean, onAction: () => void): void {

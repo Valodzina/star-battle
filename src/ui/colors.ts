@@ -26,6 +26,9 @@ export const COLORS = {
   // levelSelectHeaderHard: 0x806F9D,
 
 
+  levelNavActiveTint: 0x44505c,
+  levelNavInactiveTint: 0x68737C,
+
   levelButton:      0xC4CACF,
   levelButtonHover: 0xD4D9DD,
 
@@ -52,11 +55,13 @@ export const COLORS = {
 
   elementFill: 0x44505c,
   dotFill: 0x677482,
-  victoryCard: 0xffffff,
+
+  victoryCard: 0xfcf7f4,
   victoryCardShadow: 0x000000,
   victoryCardTitle: 0x2a2a4a,
   victoryCardTime: 0x44505c,
-  victoryStarTint: 0xecca92,
+  victoryStarTint: 0xe7c48b,
+  victoryButtonColor: 0x799d72,
 
 } as const;
 

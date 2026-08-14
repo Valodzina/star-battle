@@ -1,5 +1,4 @@
 import { Container, Sprite } from 'pixi.js';
-import { BUTTON_GAP } from '../constants';
 import { COLORS } from '../colors';
 import {
   AutofillToggle,
@@ -8,14 +7,14 @@ import {
 } from './AutofillToggle';
 import { getBinTexture, getUndoTexture } from '../gameAssets';
 
-const ICON_BUTTON_SIZE = 40;
-
-
-export const GAMEPLAY_FOOTER_CONTENT_WIDTH =
-  ICON_BUTTON_SIZE + BUTTON_GAP + ICON_BUTTON_SIZE + BUTTON_GAP + AUTOFILL_TOGGLE_WIDTH;
+const ICON_BUTTON_SIZE = 90;
+const SIDE_INSET = 40;
+const FOOTER_GAP = 32;
+const BOTTOM_BAND_HEIGHT = 160;
 
 export interface GameplayFooterOptions {
   isAutoFillEnabled: boolean;
+  logicalWidth: number;
   onUndoClicked: () => void;
   onClearClicked: () => void;
   onAutofillToggled: () => void;
@@ -29,12 +28,20 @@ export class GameplayFooter extends Container {
   constructor(options: GameplayFooterOptions) {
     super();
 
-    const { isAutoFillEnabled, onUndoClicked, onClearClicked, onAutofillToggled } = options;
+    const {
+      isAutoFillEnabled,
+      logicalWidth,
+      onUndoClicked,
+      onClearClicked,
+      onAutofillToggled,
+    } = options;
+    const centerY = BOTTOM_BAND_HEIGHT / 2;
 
     this.undoButton = new Sprite(getUndoTexture());
     this.undoButton.anchor.set(0.5);
     this.undoButton.width = ICON_BUTTON_SIZE;
     this.undoButton.height = ICON_BUTTON_SIZE;
+    this.undoButton.position.set(SIDE_INSET + ICON_BUTTON_SIZE / 2, centerY);
     this.undoButton.on('pointertap', () => onUndoClicked());
     this.setButtonEnabled(this.undoButton, false);
 
@@ -42,11 +49,19 @@ export class GameplayFooter extends Container {
       isActive: isAutoFillEnabled,
       onToggle: () => onAutofillToggled(),
     });
+    this.autoFillButton.position.set(
+      logicalWidth - SIDE_INSET - AUTOFILL_TOGGLE_WIDTH,
+      centerY - AUTOFILL_TOGGLE_HEIGHT / 2,
+    );
 
     this.clearButton = new Sprite(getBinTexture());
     this.clearButton.anchor.set(0.5);
     this.clearButton.width = ICON_BUTTON_SIZE * 0.9;
     this.clearButton.height = ICON_BUTTON_SIZE * 0.91;
+    this.clearButton.position.set(
+      this.autoFillButton.x - FOOTER_GAP - ICON_BUTTON_SIZE / 2,
+      centerY,
+    );
     this.clearButton.on('pointertap', () => onClearClicked());
     this.setButtonEnabled(this.clearButton, true);
 
@@ -59,33 +74,6 @@ export class GameplayFooter extends Container {
 
   setAutoFillEnabled(enabled: boolean): void {
     this.autoFillButton.setActive(enabled);
-  }
-
-  layout(
-    boardLeftX: number,
-    boardRightX: number,
-    uiScale: number,
-    footerCenterY: number,
-  ): void {
-    const iconDisplaySize = ICON_BUTTON_SIZE * uiScale;
-    const iconHalfDisplay = iconDisplaySize / 2;
-
-    this.undoButton.width = iconDisplaySize;
-    this.undoButton.height = iconDisplaySize;
-    this.undoButton.position.set(boardLeftX + iconHalfDisplay, footerCenterY);
-
-    this.autoFillButton.scale.set(uiScale);
-    this.autoFillButton.position.set(
-      boardRightX - AUTOFILL_TOGGLE_WIDTH * uiScale,
-      footerCenterY - (AUTOFILL_TOGGLE_HEIGHT * uiScale) / 2,
-    );
-
-    this.clearButton.width = iconDisplaySize * 0.9;
-    this.clearButton.height = iconDisplaySize * 0.91;
-    this.clearButton.position.set(
-      this.autoFillButton.x - BUTTON_GAP * 1.3 * uiScale - iconHalfDisplay,
-      footerCenterY,
-    );
   }
 
   private setButtonEnabled(buttonSprite: Sprite, isEnabled: boolean): void {

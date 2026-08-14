@@ -1,52 +1,50 @@
-import { Container, Text, Sprite } from 'pixi.js';
+import { Container, Rectangle, Sprite, Text } from 'pixi.js';
 import { COLORS } from '../colors';
-import { INTER_MEDIUM_FONT_FAMILY, LEVEL_NAV_GAP, LEVEL_NAV_HEIGHT } from '../constants';
+import { INTER_MEDIUM_FONT_FAMILY } from '../constants';
 import { getBackTexture } from '../gameAssets';
-import { LevelNavigation } from './LevelNavigation';
 
-const ICON_BUTTON_SIZE = 40;
-const HEADER_BUTTON_HEIGHT = 40;
+const ICON_BUTTON_SIZE = 50;
+const BACK_HIT_SIZE = 120;
+const SIDE_INSET = 40;
+const TIMER_FONT_SIZE = 80;
+const STARS_FONT_SIZE = 40;
+const HEADER_BAND_HEIGHT = 120;
 
 export interface GameplayHeaderOptions {
   initialTimerText: string;
   initialStars: number;
-  levelNumber: number;
-  hasPreviousLevel: boolean;
-  hasNextLevel: boolean;
-  logicalBoardWidth: number;
+  logicalWidth: number;
   onBackClicked: () => void;
-  onPrevLevel: () => void;
-  onNextLevel: () => void;
 }
 
 export class GameplayHeader extends Container {
-  private readonly backButton: Sprite;
+  private readonly backButton: Container;
   private readonly timerText: Text;
   private readonly remainingText: Text;
-  private readonly levelNavigation: LevelNavigation;
 
   constructor(options: GameplayHeaderOptions) {
     super();
 
-    const {
-      initialTimerText,
-      initialStars,
-      levelNumber,
-      hasPreviousLevel,
-      hasNextLevel,
-      logicalBoardWidth,
-      onBackClicked,
-      onPrevLevel,
-      onNextLevel,
-    } = options;
+    const { initialTimerText, initialStars, logicalWidth, onBackClicked } = options;
+    const centerY = HEADER_BAND_HEIGHT / 2;
 
-    this.backButton = new Sprite(getBackTexture());
-    this.backButton.anchor.set(0.5);
-    this.backButton.width = ICON_BUTTON_SIZE;
-    this.backButton.height = ICON_BUTTON_SIZE;
-    this.backButton.tint = COLORS.activeTint;
+    const backIcon = new Sprite(getBackTexture());
+    backIcon.anchor.set(0.5);
+    backIcon.width = ICON_BUTTON_SIZE;
+    backIcon.height = ICON_BUTTON_SIZE;
+    backIcon.tint = COLORS.activeTint;
+
+    this.backButton = new Container();
     this.backButton.eventMode = 'static';
     this.backButton.cursor = 'pointer';
+    this.backButton.hitArea = new Rectangle(
+      -BACK_HIT_SIZE / 2,
+      -BACK_HIT_SIZE / 2,
+      BACK_HIT_SIZE,
+      BACK_HIT_SIZE,
+    );
+    this.backButton.position.set(SIDE_INSET + ICON_BUTTON_SIZE / 2, centerY);
+    this.backButton.addChild(backIcon);
     this.backButton.on('pointertap', () => onBackClicked());
 
     this.timerText = new Text({
@@ -54,38 +52,26 @@ export class GameplayHeader extends Container {
       style: {
         fill: COLORS.title,
         fontFamily: INTER_MEDIUM_FONT_FAMILY,
-        fontSize: 28,
+        fontSize: TIMER_FONT_SIZE,
         fontWeight: '700',
       },
     });
-    this.timerText.anchor.set(0.5, 0);
+    this.timerText.anchor.set(0.5);
+    this.timerText.position.set(logicalWidth / 2, centerY);
 
     this.remainingText = new Text({
       text: `Left: ${initialStars}`,
       style: {
         fill: COLORS.title,
         fontFamily: INTER_MEDIUM_FONT_FAMILY,
-        fontSize: 20,
+        fontSize: STARS_FONT_SIZE,
         fontWeight: '600',
       },
     });
-    this.remainingText.anchor.set(1, 0);
+    this.remainingText.anchor.set(1, 0.5);
+    this.remainingText.position.set(logicalWidth - SIDE_INSET, centerY);
 
-    this.levelNavigation = new LevelNavigation({
-      levelNumber,
-      logicalBoardWidth,
-      hasPreviousLevel,
-      hasNextLevel,
-      onPrevClick: () => onPrevLevel(),
-      onNextClick: () => onNextLevel(),
-    });
-
-    this.addChild(
-      this.backButton,
-      this.timerText,
-      this.remainingText,
-      this.levelNavigation,
-    );
+    this.addChild(this.backButton, this.timerText, this.remainingText);
   }
 
   updateTimer(timeString: string): void {
@@ -94,42 +80,5 @@ export class GameplayHeader extends Container {
 
   updateStars(count: number): void {
     this.remainingText.text = `Left: ${count}`;
-  }
-
-  updateLevelNumber(level: number): void {
-    this.levelNavigation.updateLevel(level);
-  }
-
-  setLevelNavEnabled(hasPrevious: boolean, hasNext: boolean): void {
-    this.levelNavigation.setPrevEnabled(hasPrevious);
-    this.levelNavigation.setNextEnabled(hasNext);
-  }
-
-  layout(boardLeftX: number, boardRightX: number, uiScale: number, headerY: number): void {
-    const iconDisplaySize = ICON_BUTTON_SIZE * uiScale;
-    const iconHalfDisplay = iconDisplaySize / 2;
-    const scaledHeaderHeight = HEADER_BUTTON_HEIGHT * uiScale;
-    const boardCenterX = boardLeftX + (boardRightX - boardLeftX) / 2;
-
-    this.backButton.width = iconDisplaySize;
-    this.backButton.height = iconDisplaySize;
-    this.backButton.position.set(
-      boardLeftX + iconHalfDisplay,
-      headerY + scaledHeaderHeight / 2,
-    );
-
-    this.timerText.scale.set(uiScale);
-    this.timerText.position.set(boardCenterX, headerY);
-
-    this.remainingText.scale.set(uiScale);
-    this.remainingText.position.set(boardRightX, headerY);
-  }
-
-  layoutLevelNav(boardLeftX: number, boardTopY: number, boardScale: number): void {
-    this.levelNavigation.scale.set(boardScale);
-    this.levelNavigation.position.set(
-      boardLeftX,
-      boardTopY - LEVEL_NAV_GAP - LEVEL_NAV_HEIGHT * boardScale,
-    );
   }
 }
