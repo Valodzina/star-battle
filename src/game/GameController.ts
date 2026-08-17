@@ -165,9 +165,9 @@ export class GameController {
         this.view.setAutoFillEnabled(this.model.isAutoFillOn());
       },
       onCellTap: (row: number, col: number) => {
-        const change = this.model.cycleCell(row, col);
-        if (change) {
-          this.model.pushMove({ changes: [change] });
+        const changes = this.model.cycleCell(row, col);
+        if (changes) {
+          this.model.pushMove({ changes });
         }
         this.syncGameplayBoard();
         this.view.setUndoEnabled(this.model.canUndo());
@@ -191,7 +191,6 @@ export class GameController {
           this.model.pushMove({ changes: this.pendingDragChanges });
           this.pendingDragChanges = [];
         }
-        this.model.finalizeInteraction();
         this.syncGameplayBoard();
         this.view.setUndoEnabled(this.model.canUndo());
       },
@@ -219,7 +218,6 @@ export class GameController {
         this.pendingDragChanges = [];
         this.wasVictory = false;
         this.model.clearBoard();
-        this.model.applyAutoFillRules();
         this.syncGameplayBoard();
         this.view.setUndoEnabled(this.model.canUndo());
       },

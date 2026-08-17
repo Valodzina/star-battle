@@ -239,6 +239,7 @@ export class GameBoard extends Container {
     );
   }
 
+
   private cellCornerRadius(cellSize: number): number {
     return Math.min(12, Math.max(4, cellSize * 0.05));
   }
@@ -455,7 +456,7 @@ export class GameBoard extends Container {
   }
 
   private resolveDragMode(placement: CellState['placed'] | null): 'painting' | 'erasing' | null {
-    if (placement === 'nothing' || placement === 'auto-dot') {
+    if (placement === 'nothing') {
       return 'painting';
     }
 
@@ -635,7 +636,7 @@ export class GameBoard extends Container {
       return;
     }
 
-    if (placed === 'dot' || placed === 'auto-dot') {
+    if (placed === 'dot') {
       const radius = this.cellSize * 0.075;
       const dot = new Graphics().circle(0, 0, radius).fill(COLORS.dotFill);
       marker.addChild(dot);
