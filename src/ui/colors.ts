@@ -92,6 +92,23 @@ export const REGION_BACKGROUNDS: readonly number[] = [
   0x7A7A84, // from 0xCBB8C0
 ] as const;
 
+export const REGION_STAR_OUTLINES: readonly number[] = [
+  0xC4D5E1, // from 0xB3C9D8
+  0xBCCBDC, // from 0xA9BCD2
+  0xC9C6DB, // from 0xBAB6D1
+  0xD5C7D7, // from 0xC9B7CC
+  0xE1CAD1, // from 0xD8BBC4
+  0xE0C8B9, // from 0xD7B9A5
+  0xE1D5B9, // from 0xD8C9A5
+  0xCDDAC1, // from 0xBFCFB0
+  0xBFD1C6, // from 0xADC4B6
+  0xD6C8CE, // from 0xCBB8C0
+] as const;
+
 export function getRegionColor(regionId: number): number {
   return REGION_COLORS[regionId % REGION_COLORS.length] ?? COLORS.cellPlayable;
+}
+
+export function getRegionStarOutline(regionId: number): number {
+  return REGION_STAR_OUTLINES[regionId % REGION_STAR_OUTLINES.length] ?? COLORS.elementFill;
 }

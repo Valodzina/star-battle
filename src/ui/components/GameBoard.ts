@@ -2,7 +2,7 @@ import { Container, FederatedPointerEvent, Graphics, Rectangle, Sprite } from 'p
 import gsap from 'gsap';
 import type { CellPosition } from '../../game/GameModel';
 import type { CellState } from '../../types/level';
-import { COLORS, REGION_BACKGROUNDS, getRegionColor } from '../colors';
+import { COLORS, REGION_BACKGROUNDS, getRegionColor, getRegionStarOutline } from '../colors';
 import { REGION_BORDER_WIDTH } from '../constants';
 import { getStarTexture } from '../gameAssets';
 import { HapticManager } from '../../utils/HapticManager';
@@ -102,7 +102,7 @@ export class GameBoard extends Container {
         const cell = boardState[row]?.[col];
         const marker = this.cellMarkers[row]?.[col];
         if (cell && marker) {
-          this.drawCellMarker(marker, cell.placed);
+          this.drawCellMarker(marker, cell.placed, cell.regionId);
         }
       }
     }
@@ -321,7 +321,7 @@ export class GameBoard extends Container {
         cellsContainer.addChild(cellFill);
 
         const marker = new Container();
-        this.drawCellMarker(marker, cell.placed);
+        this.drawCellMarker(marker, cell.placed, cell.regionId);
         marker.x = centerX;
         marker.y = centerY;
         markerRow.push(marker);
@@ -743,7 +743,11 @@ export class GameBoard extends Container {
     }
   }
 
-  private drawCellMarker(marker: Container, placed: CellState['placed']): void {
+  private drawCellMarker(
+    marker: Container,
+    placed: CellState['placed'],
+    regionId?: number,
+  ): void {
     marker.removeChildren().forEach((child) => {
       child.destroy();
     });
@@ -759,14 +763,21 @@ export class GameBoard extends Container {
       return;
     }
 
+    const starSize = this.cellSize * 0.8;
+    const outlineStar = this.createStarSprite(starSize, getRegionStarOutline(regionId ?? 0));
+    const innerStar = this.createStarSprite(starSize * 0.82, COLORS.elementFill);
+    marker.addChild(outlineStar, innerStar);
+  }
+
+  private createStarSprite(size: number, tint: number): Sprite {
     const sprite = new Sprite(getStarTexture());
-    sprite.width = this.cellSize * 0.8;
-    sprite.height = this.cellSize * 0.8;
+    sprite.width = size;
+    sprite.height = size;
     sprite.anchor.set(0.5);
     sprite.x = 0;
     sprite.y = 0;
-    sprite.tint = COLORS.elementFill;
-    marker.addChild(sprite);
+    sprite.tint = tint;
+    return sprite;
   }
 
   private resetInvalidStarVisual(key: string): void {
@@ -780,9 +791,10 @@ export class GameBoard extends Container {
 
     marker.scale.set(1);
 
-    const sprite = marker.children.find((child) => child instanceof Sprite);
-    if (sprite instanceof Sprite && !sprite.destroyed) {
-      sprite.tint = COLORS.elementFill;
+    const sprites = marker.children.filter((child) => child instanceof Sprite);
+    const innerStar = sprites[sprites.length - 1];
+    if (innerStar instanceof Sprite && !innerStar.destroyed) {
+      innerStar.tint = COLORS.elementFill;
     }
   }
 
