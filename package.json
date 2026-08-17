@@ -12,6 +12,7 @@
     "add-levels": "tsx scripts/addLevels.ts"
   },
   "devDependencies": {
+    "@types/howler": "^2.2.13",
     "@typescript-eslint/eslint-plugin": "^8.63.0",
     "@typescript-eslint/parser": "^8.63.0",
     "eslint": "^10.6.0",
@@ -22,6 +23,7 @@
   },
   "dependencies": {
     "gsap": "^3.15.0",
+    "howler": "^2.2.4",
     "pixi.js": "^8.19.0"
   }
 }

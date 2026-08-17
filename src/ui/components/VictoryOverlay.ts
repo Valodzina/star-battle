@@ -4,6 +4,7 @@ import { COLORS } from '../colors';
 import { INTER_MEDIUM_FONT_FAMILY,TITLE_FONT_FAMILY } from '../constants';
 import { VictoryButton, VICTORY_BUTTON_HEIGHT, VICTORY_BUTTON_WIDTH } from './VictoryButton';
 import { getStarWinTexture } from '../gameAssets';
+import { SoundManager } from '../../utils/SoundManager';
 
 const VICTORY_CARD_WIDTH = 750;
 const VICTORY_CARD_HEIGHT = 790;
@@ -101,6 +102,9 @@ export class VictoryOverlay extends Container {
     if (this.visible) {
       return;
     }
+
+    SoundManager.playWin();
+    SoundManager.setConflictState(false);
 
     this.visible = true;
     this.scale.set(0);

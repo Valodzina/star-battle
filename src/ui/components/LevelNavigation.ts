@@ -1,5 +1,6 @@
 import { Container, FederatedPointerEvent, Graphics, Rectangle, Sprite, Text } from 'pixi.js';
 import { HapticManager } from '../../utils/HapticManager';
+import { SoundManager } from '../../utils/SoundManager';
 import { COLORS } from '../colors';
 import {
   INTER_MEDIUM_FONT_FAMILY,
@@ -101,7 +102,10 @@ export class LevelNavigation extends Container {
     this.prevButton.height = ARROW_ICON_SIZE;
     this.prevButton.x = logicalBoardWidth / 2 - ARROW_INSET_X;
     this.prevButton.y = LEVEL_NAV_HEIGHT / 2;
-    this.prevButton.on('pointerdown', () => HapticManager.playLight());
+    this.prevButton.on('pointerdown', () => {
+      HapticManager.playLight();
+      SoundManager.playClick();
+    });
     this.prevButton.on('pointertap', (event: FederatedPointerEvent) => {
       event.stopPropagation();
       this.onPrevClick();
@@ -114,7 +118,10 @@ export class LevelNavigation extends Container {
     this.nextButton.scale.x *= -1;
     this.nextButton.x = logicalBoardWidth / 2 + ARROW_INSET_X;
     this.nextButton.y = LEVEL_NAV_HEIGHT / 2;
-    this.nextButton.on('pointerdown', () => HapticManager.playLight());
+    this.nextButton.on('pointerdown', () => {
+      HapticManager.playLight();
+      SoundManager.playClick();
+    });
     this.nextButton.on('pointertap', (event: FederatedPointerEvent) => {
       event.stopPropagation();
       this.onNextClick();

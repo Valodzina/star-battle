@@ -6,6 +6,7 @@ import { DIFFICULTY_META } from '../../types/level';
 import type { LevelManager } from '../../services/LevelManager';
 import type { ProgressManager } from '../../services/ProgressManager';
 import { HapticManager } from '../../utils/HapticManager';
+import { SoundManager } from '../../utils/SoundManager';
 import { COLORS } from '../colors';
 import {  SCREEN_PADDING, TILE_GAP, TITLE_FONT_FAMILY } from '../constants';
 import { getBackTexture } from '../gameAssets';
@@ -142,7 +143,10 @@ export class LevelSelectScene extends Container implements IScene {
     );
     backButton.position.set(SCREEN_PADDING * 2, SCREEN_PADDING * 2);
     backButton.addChild(backIcon);
-    backButton.on('pointerdown', () => HapticManager.playLight());
+    backButton.on('pointerdown', () => {
+      HapticManager.playLight();
+      SoundManager.playClick();
+    });
     backButton.on('pointertap', () => this.callbacks.onBackSelected());
     headerContainer.addChild(backButton);
 

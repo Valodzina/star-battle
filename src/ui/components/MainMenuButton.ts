@@ -1,5 +1,6 @@
 import { Container, Graphics, Rectangle, Sprite, Text } from 'pixi.js';
 import { HapticManager } from '../../utils/HapticManager';
+import { SoundManager } from '../../utils/SoundManager';
 import { COLORS } from '../colors';
 import { INTER_MEDIUM_FONT_FAMILY, INTER_SEMIBOLD_FONT_FAMILY } from '../constants';
 import { getStarWinTexture } from '../gameAssets';
@@ -166,7 +167,11 @@ export class MainMenuButton extends Container {
 
     this.on('pointerover', () => drawBackground(COLORS.menuButtonHover));
     this.on('pointerout', () => drawBackground(COLORS.menuButton));
-    this.on('pointerdown', () => HapticManager.playLight());
+    this.on('pointerdown', () => {
+      SoundManager.playBgr();
+      HapticManager.playLight();
+      SoundManager.playClick();
+    });
     this.on('pointertap', onClick);
   }
 }

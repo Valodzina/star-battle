@@ -5,6 +5,7 @@ import type { Difficulty, ScreenId } from '../types/level';
 import type { LevelManager } from '../services/LevelManager';
 import { ProgressManager } from '../services/ProgressManager';
 import { HapticManager } from '../utils/HapticManager';
+import { SoundManager } from '../utils/SoundManager';
 
 export class GameController {
   private readonly model = new GameModel();
@@ -166,14 +167,20 @@ export class GameController {
         this.view.setAutoFillEnabled(this.model.isAutoFillOn());
       },
       onCellTap: (row: number, col: number) => {
+        SoundManager.playBgr();
         const result = this.model.cycleCell(row, col);
         if (result) {
           this.model.pushMove({ changes: result.changes });
           const tappedState = result.changes[0]?.newState;
           if (tappedState === 'element') {
             HapticManager.playDouble();
-          } else if (tappedState === 'dot' || tappedState === 'nothing') {
+            SoundManager.playPop2();
+          } else if (tappedState === 'dot') {
             HapticManager.playLight();
+            SoundManager.playPop1();
+          } else if (tappedState === 'nothing') {
+            HapticManager.playLight();
+            SoundManager.playPop3();
           }
         }
 
@@ -194,18 +201,22 @@ export class GameController {
         this.view.setUndoEnabled(this.model.canUndo());
       },
       onDragPaint: (row: number, col: number) => {
+        SoundManager.playBgr();
         const change = this.model.paintDot(row, col);
         if (change) {
           this.pendingDragChanges.push(change);
           HapticManager.playLight();
+          SoundManager.playPop1();
           this.syncGameplayBoard();
         }
       },
       onDragErase: (row: number, col: number) => {
+        SoundManager.playBgr();
         const change = this.model.eraseDot(row, col);
         if (change) {
           this.pendingDragChanges.push(change);
           HapticManager.playLight();
+          SoundManager.playPop3();
           this.syncGameplayBoard();
         }
       },

@@ -9,6 +9,7 @@ import { GameplayFooter } from '../components/GameplayFooter';
 import { LevelNavigation } from '../components/LevelNavigation';
 import { VictoryOverlay } from '../components/VictoryOverlay';
 import type { IScene } from './IScene';
+import { SoundManager } from '../../utils/SoundManager';
 
 // DEBUG: show the victory overlay immediately without completing a level.
 const DEBUG_SHOW_VICTORY = false;
@@ -104,6 +105,7 @@ export class GameplayScene extends Container implements IScene {
   hide(): void {
     this.victoryOverlay.hide();
     this.gameBoard.clearAnimations();
+    SoundManager.setConflictState(false);
     this.visible = false;
   }
 

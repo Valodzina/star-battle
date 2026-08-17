@@ -1,5 +1,6 @@
 import { Container, Sprite } from 'pixi.js';
 import { HapticManager } from '../../utils/HapticManager';
+import { SoundManager } from '../../utils/SoundManager';
 import { COLORS } from '../colors';
 import {
   AutofillToggle,
@@ -43,7 +44,10 @@ export class GameplayFooter extends Container {
     this.undoButton.width = ICON_BUTTON_SIZE;
     this.undoButton.height = ICON_BUTTON_SIZE;
     this.undoButton.position.set(SIDE_INSET + ICON_BUTTON_SIZE / 2, centerY);
-    this.undoButton.on('pointerdown', () => HapticManager.playLight());
+    this.undoButton.on('pointerdown', () => {
+      HapticManager.playLight();
+      SoundManager.playClick();
+    });
     this.undoButton.on('pointertap', () => onUndoClicked());
     this.setButtonEnabled(this.undoButton, false);
 
@@ -64,7 +68,10 @@ export class GameplayFooter extends Container {
       this.autoFillButton.x - FOOTER_GAP - ICON_BUTTON_SIZE / 2,
       centerY,
     );
-    this.clearButton.on('pointerdown', () => HapticManager.playLight());
+    this.clearButton.on('pointerdown', () => {
+      HapticManager.playLight();
+      SoundManager.playClick();
+    });
     this.clearButton.on('pointertap', () => onClearClicked());
     this.setButtonEnabled(this.clearButton, true);
 

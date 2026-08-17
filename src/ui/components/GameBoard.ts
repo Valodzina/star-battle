@@ -6,6 +6,7 @@ import { COLORS, REGION_BACKGROUNDS, getRegionColor } from '../colors';
 import { REGION_BORDER_WIDTH } from '../constants';
 import { getStarTexture } from '../gameAssets';
 import { HapticManager } from '../../utils/HapticManager';
+import { SoundManager } from '../../utils/SoundManager';
 
 export interface GameBoardOptions {
   cellSize: number;
@@ -151,8 +152,8 @@ export class GameBoard extends Container {
       return;
     }
 
-    const ringDuration = 0.09;
-    const ringStagger = 0.001;
+    const ringDuration = 0.06;
+    const ringInterval = 0.02;
     const tl = gsap.timeline({
       onComplete: () => {
         this.autoDotTimeline = null;
@@ -162,7 +163,7 @@ export class GameBoard extends Container {
     });
 
     populatedGroups.forEach((scaleTargets, index) => {
-      const position = index === 0 ? 0 : tl.duration() + ringStagger;
+      const position = index * ringInterval;
       tl.to(
         scaleTargets,
         {
@@ -173,12 +174,13 @@ export class GameBoard extends Container {
         },
         position,
       );
+      tl.call(() => SoundManager.playPop1(), undefined, position);
     });
 
     // Start the ring pattern now, while the tap is still a user gesture.
     // Delayed GSAP callbacks cannot call navigator.vibrate() in Chrome.
     const lightMs = 15;
-    const intervalMs = Math.round((ringDuration + ringStagger) * 1000);
+    const intervalMs = Math.round(ringInterval * 1000);
     const pauseMs = Math.max(1, intervalMs - lightMs);
     const pattern: number[] = [];
     for (let i = 0; i < populatedGroups.length; i += 1) {
@@ -193,6 +195,8 @@ export class GameBoard extends Container {
   }
 
   updateInvalidStars(invalidPositions: Array<{ row: number; col: number }>): void {
+    SoundManager.setConflictState(invalidPositions.length > 0);
+
     const invalidKeys = new Set(invalidPositions.map(({ row, col }) => `${row},${col}`));
 
     for (const [key, tween] of this.invalidStarTweens) {
