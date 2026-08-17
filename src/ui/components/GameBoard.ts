@@ -31,7 +31,7 @@ export class GameBoard extends Container {
   private readonly gridContainer = new Container();
   private readonly markersContainer = new Container();
   private readonly boardMask = new Graphics();
-  private readonly invalidStarTweens = new Map<string, gsap.core.Tween>();
+  private readonly invalidStarTweens = new Map<string, gsap.core.Timeline>();
 
   private cellFills: Container[][] = [];
   private cellMarkers: Container[][] = [];
@@ -234,17 +234,40 @@ export class GameBoard extends Container {
       }
 
       marker.scale.set(1);
+      marker.rotation = 0;
 
-      const tween = gsap.to(marker.scale, {
-        x: 1.05,
-        y: 1.05,
-        duration: 0.22,
-        delay: 0.35,
+      const rockAngle = 0.10;
+      const swingDuration = 0.72;
+      const peakScale = 1.03;
+      const introDuration = swingDuration / 2;
+      const timeline = gsap.timeline();
+      timeline.to(marker, {
+        rotation: rockAngle,
+        duration: introDuration,
+        ease: 'sine.out',
+      }, 0);
+      timeline.to(marker.scale, {
+        x: peakScale,
+        y: peakScale,
+        duration: introDuration,
+        ease: 'sine.out',
+      }, 0);
+      timeline.to(marker, {
+        rotation: -rockAngle,
+        duration: swingDuration,
+        ease: 'sine.inOut',
         repeat: -1,
         yoyo: true,
+      }, introDuration);
+      timeline.to(marker.scale, {
+        x: 1,
+        y: 1,
+        duration: introDuration,
         ease: 'sine.inOut',
-      });
-      this.invalidStarTweens.set(key, tween);
+        repeat: -1,
+        yoyo: true,
+      }, introDuration);
+      this.invalidStarTweens.set(key, timeline);
     }
   }
 
@@ -846,6 +869,7 @@ export class GameBoard extends Container {
     }
 
     marker.scale.set(1);
+    marker.rotation = 0;
 
     const sprites = this.getMarkerSprites(marker);
     const innerStar = sprites[sprites.length - 1];
