@@ -1,5 +1,6 @@
 import { Container, FederatedPointerEvent, Graphics, Rectangle, Sprite } from 'pixi.js';
 import gsap from 'gsap';
+import type { CellPosition } from '../../game/GameModel';
 import type { CellState } from '../../types/level';
 import { COLORS, REGION_BACKGROUNDS, getRegionColor } from '../colors';
 import { REGION_BORDER_WIDTH } from '../constants';
@@ -33,6 +34,9 @@ export class GameBoard extends Container {
   private cellFills: Container[][] = [];
   private cellMarkers: Container[][] = [];
   private boardState: CellState[][] = [];
+
+  private isInputBlocked = false;
+  private autoDotTimeline: gsap.core.Timeline | null = null;
 
   private pointerDownCell: { row: number; col: number } | null = null;
   private startCellPlacement: CellState['placed'] | null = null;
@@ -70,12 +74,29 @@ export class GameBoard extends Container {
     this.attachBoardPointerHandlers();
   }
 
-  updateBoardState(boardState: CellState[][]): void {
+  getIsInputBlocked(): boolean {
+    return this.isInputBlocked;
+  }
+
+  updateBoardState(boardState: CellState[][], skipMarkerCells?: CellPosition[]): void {
+    this.clearAutoDotAnimation();
     this.clearInvalidStarAnimations();
     this.boardState = boardState;
 
+    const skippedCells = new Set(
+      (skipMarkerCells ?? []).map(({ row, col }) => `${row},${col}`),
+    );
+
     for (let row = 0; row < boardState.length; row += 1) {
       for (let col = 0; col < (boardState[row]?.length ?? 0); col += 1) {
+        if (skippedCells.has(`${row},${col}`)) {
+          const marker = this.cellMarkers[row]?.[col];
+          if (marker) {
+            this.drawCellMarker(marker, 'nothing');
+          }
+          continue;
+        }
+
         const cell = boardState[row]?.[col];
         const marker = this.cellMarkers[row]?.[col];
         if (cell && marker) {
@@ -83,6 +104,74 @@ export class GameBoard extends Container {
         }
       }
     }
+  }
+
+  animateAutoDots(
+    newDots: CellPosition[],
+    sourceStar: CellPosition,
+    onComplete?: () => void,
+  ): void {
+    if (newDots.length === 0) {
+      this.isInputBlocked = false;
+      onComplete?.();
+      return;
+    }
+
+    this.clearAutoDotAnimation();
+    this.isInputBlocked = true;
+
+    const groups: Array<Array<{ x: number; y: number }>> = [];
+    for (const dot of newDots) {
+      const dist = Math.max(
+        Math.abs(dot.row - sourceStar.row),
+        Math.abs(dot.col - sourceStar.col),
+      );
+      const marker = this.cellMarkers[dot.row]?.[dot.col];
+      if (!marker) {
+        continue;
+      }
+
+      this.drawCellMarker(marker, 'dot');
+      const dotDisplay = marker.children[0];
+      if (!dotDisplay) {
+        continue;
+      }
+
+      dotDisplay.scale.set(0);
+      const group = groups[dist] ?? [];
+      group.push(dotDisplay.scale);
+      groups[dist] = group;
+    }
+
+    const populatedGroups = groups.filter((group) => group && group.length > 0);
+    if (populatedGroups.length === 0) {
+      this.isInputBlocked = false;
+      onComplete?.();
+      return;
+    }
+
+    const tl = gsap.timeline({
+      onComplete: () => {
+        this.autoDotTimeline = null;
+        this.isInputBlocked = false;
+        onComplete?.();
+      },
+    });
+
+    populatedGroups.forEach((scaleTargets, index) => {
+      tl.to(
+        scaleTargets,
+        {
+          x: 1,
+          y: 1,
+          duration: 0.09,
+          ease: 'back.out(2)',
+        },
+        index === 0 ? 0 : '+=0.001',
+      );
+    });
+
+    this.autoDotTimeline = tl;
   }
 
   updateInvalidStars(invalidPositions: Array<{ row: number; col: number }>): void {
@@ -130,6 +219,7 @@ export class GameBoard extends Container {
   }
 
   clearAnimations(): void {
+    this.clearAutoDotAnimation();
     this.clearInvalidStarAnimations();
     this.clearPressAnimations();
   }
@@ -382,6 +472,10 @@ export class GameBoard extends Container {
     this.hitArea = new Rectangle(0, 0, this.logicalSize, this.logicalSize);
 
     this.on('pointerdown', (event: FederatedPointerEvent) => {
+      if (this.isInputBlocked) {
+        return;
+      }
+
       this.resetDragSession();
       const cell = this.getCellFromLocalPoint(event.getLocalPosition(this));
       if (!cell) {
@@ -395,7 +489,7 @@ export class GameBoard extends Container {
     });
 
     this.on('globalpointermove', (event: FederatedPointerEvent) => {
-      if (!this.pointerDownCell) {
+      if (this.isInputBlocked || !this.pointerDownCell) {
         return;
       }
 
@@ -430,7 +524,7 @@ export class GameBoard extends Container {
     });
 
     const handlePointerUp = (event: FederatedPointerEvent): void => {
-      if (!this.pointerDownCell) {
+      if (this.isInputBlocked || !this.pointerDownCell) {
         return;
       }
 
@@ -668,6 +762,12 @@ export class GameBoard extends Container {
     if (sprite instanceof Sprite && !sprite.destroyed) {
       sprite.tint = COLORS.elementFill;
     }
+  }
+
+  private clearAutoDotAnimation(): void {
+    this.autoDotTimeline?.kill();
+    this.autoDotTimeline = null;
+    this.isInputBlocked = false;
   }
 
   private clearInvalidStarAnimations(): void {

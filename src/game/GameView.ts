@@ -1,4 +1,5 @@
 import { Application, Container } from 'pixi.js';
+import type { CellPosition } from './GameModel';
 import type { CellState, Difficulty, GameState } from '../types/level';
 import type { LevelManager } from '../services/LevelManager';
 import type { ProgressManager } from '../services/ProgressManager';
@@ -130,12 +131,28 @@ export class GameView {
     boardState: CellState[][],
     remainingElements: number,
     isVictory: boolean,
+    options?: {
+      skipMarkerCells?: CellPosition[];
+      skipBoardRedraw?: boolean;
+    },
   ): void {
-    this.gameplayScene?.updateGameplayBoard(boardState, remainingElements, isVictory);
+    this.gameplayScene?.updateGameplayBoard(boardState, remainingElements, isVictory, options);
   }
 
   updateInvalidStars(invalidPositions: Array<{ row: number; col: number }>): void {
     this.gameplayScene?.updateInvalidStars(invalidPositions);
+  }
+
+  isBoardInputBlocked(): boolean {
+    return this.gameplayScene?.isBoardInputBlocked() ?? false;
+  }
+
+  animateAutoDots(
+    newDots: CellPosition[],
+    sourceStar: CellPosition,
+    onComplete?: () => void,
+  ): void {
+    this.gameplayScene?.animateAutoDots(newDots, sourceStar, onComplete);
   }
 
   refreshLevelNavigation(): void {

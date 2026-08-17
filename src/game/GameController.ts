@@ -1,5 +1,5 @@
 import type { Application } from 'pixi.js';
-import { GameModel, type CellChange } from './GameModel';
+import { GameModel, type CellChange, type CellPosition } from './GameModel';
 import { GameView } from './GameView';
 import type { Difficulty, ScreenId } from '../types/level';
 import type { LevelManager } from '../services/LevelManager';
@@ -165,10 +165,24 @@ export class GameController {
         this.view.setAutoFillEnabled(this.model.isAutoFillOn());
       },
       onCellTap: (row: number, col: number) => {
-        const changes = this.model.cycleCell(row, col);
-        if (changes) {
-          this.model.pushMove({ changes });
+        const result = this.model.cycleCell(row, col);
+        if (result) {
+          this.model.pushMove({ changes: result.changes });
         }
+
+        if (result?.newAutoDots.length && result.sourceStar) {
+          this.syncGameplayBoard({
+            pendingAutoDots: result.newAutoDots,
+            suppressVictory: true,
+          });
+          this.view.setUndoEnabled(false);
+          this.view.animateAutoDots(result.newAutoDots, result.sourceStar, () => {
+            this.syncGameplayBoard({ skipBoardRedraw: true });
+            this.view.setUndoEnabled(this.model.canUndo());
+          });
+          return;
+        }
+
         this.syncGameplayBoard();
         this.view.setUndoEnabled(this.model.canUndo());
       },
@@ -195,6 +209,10 @@ export class GameController {
         this.view.setUndoEnabled(this.model.canUndo());
       },
       onUndoClick: () => {
+        if (this.view.isBoardInputBlocked()) {
+          return;
+        }
+
         const record = this.model.undoLastMove();
         if (!record) {
           return;
@@ -210,11 +228,19 @@ export class GameController {
         }
       },
       onAutoFillToggle: () => {
+        if (this.view.isBoardInputBlocked()) {
+          return;
+        }
+
         const enabled = this.model.toggleAutoFill();
         this.view.setAutoFillEnabled(enabled);
         this.syncGameplayBoard();
       },
       onClearBoard: () => {
+        if (this.view.isBoardInputBlocked()) {
+          return;
+        }
+
         this.pendingDragChanges = [];
         this.wasVictory = false;
         this.model.clearBoard();
@@ -237,7 +263,11 @@ export class GameController {
     });
   }
 
-  private syncGameplayBoard(): void {
+  private syncGameplayBoard(options?: {
+    pendingAutoDots?: CellPosition[];
+    suppressVictory?: boolean;
+    skipBoardRedraw?: boolean;
+  }): void {
     const gameplay = this.model.getGameplay();
     if (!gameplay) {
       return;
@@ -254,7 +284,11 @@ export class GameController {
     this.view.updateGameplayBoard(
       gameplay.boardState,
       gameplay.remainingElements,
-      gameplay.isVictory,
+      options?.suppressVictory ? false : gameplay.isVictory,
+      {
+        skipMarkerCells: options?.pendingAutoDots,
+        skipBoardRedraw: options?.skipBoardRedraw,
+      },
     );
     this.view.updateInvalidStars(this.model.getInvalidStarPositions());
 

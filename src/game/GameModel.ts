@@ -19,6 +19,17 @@ export interface CellChange {
   newState: CellPlacement;
 }
 
+export interface CellPosition {
+  row: number;
+  col: number;
+}
+
+export interface CycleCellResult {
+  changes: CellChange[];
+  newAutoDots: CellPosition[];
+  sourceStar: CellPosition | null;
+}
+
 export interface MoveRecord {
   changes: CellChange[];
 }
@@ -222,7 +233,7 @@ export class GameModel {
     this.updateGameplayFromBoard();
   }
 
-  cycleCell(row: number, col: number): CellChange[] | null {
+  cycleCell(row: number, col: number): CycleCellResult | null {
     const gameplay = this.state.gameplay;
     if (!gameplay || gameplay.isVictory) {
       return null;
@@ -246,12 +257,18 @@ export class GameModel {
     }
 
     const changes: CellChange[] = [{ row, col, previousState, newState: nextPlacement }];
+    let newAutoDots: CellPosition[] = [];
+    let sourceStar: CellPosition | null = null;
+
     if (nextPlacement === 'element') {
-      changes.push(...this.placeAutoFillDotsForStar(row, col));
+      sourceStar = { row, col };
+      const autoFillChanges = this.placeAutoFillDotsForStar(row, col);
+      changes.push(...autoFillChanges);
+      newAutoDots = autoFillChanges.map((change) => ({ row: change.row, col: change.col }));
     }
 
     this.updateGameplayFromBoard();
-    return changes;
+    return { changes, newAutoDots, sourceStar };
   }
 
   paintDot(row: number, col: number): CellChange | null {
