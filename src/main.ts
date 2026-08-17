@@ -8,7 +8,7 @@ import { loadGameAssets } from './ui/gameAssets';
 
 // DEBUG MODE: Set to true to bypass menus and load the first Easy level immediately.
 // Set to false (or comment out the skip block below) to restore the normal Main Menu flow.
-const DEBUG_SKIP_TO_LEVEL = true;
+const DEBUG_SKIP_TO_LEVEL = false;
 
 async function bootstrap(): Promise<void> {
   const app = new Application();
