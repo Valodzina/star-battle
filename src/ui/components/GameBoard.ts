@@ -30,6 +30,7 @@ export class GameBoard extends Container {
   private readonly boardMask = new Graphics();
   private readonly invalidStarTweens = new Map<string, gsap.core.Tween>();
 
+  private cellFills: Container[][] = [];
   private cellMarkers: Container[][] = [];
   private boardState: CellState[][] = [];
 
@@ -111,10 +112,6 @@ export class GameBoard extends Container {
         continue;
       }
 
-      // Markers are top-left anchored; pivot to cell center so scale pulses in place.
-      const half = this.cellSize / 2;
-      marker.pivot.set(half, half);
-      marker.position.set(col * this.cellSize + half, row * this.cellSize + half);
       marker.scale.set(1);
 
       const tween = gsap.to(marker.scale, {
@@ -132,27 +129,31 @@ export class GameBoard extends Container {
 
   clearAnimations(): void {
     this.clearInvalidStarAnimations();
+    this.clearPressAnimations();
   }
 
   private renderGrid(boardState: CellState[][]): void {
     const boardUnderlay = new Graphics();
-    const regionFills = new Graphics();
+    const cellsContainer = new Container();
     const gridLines = new Graphics();
     const regionBorders = new Graphics();
     const outerPerimeter = new Graphics();
 
+    this.cellFills = [];
     this.cellMarkers = [];
     this.boardState = boardState;
 
     const cellRadius = this.cellCornerRadius(this.cellSize);
     const boardWidth = this.logicalSize;
     const boardHeight = this.logicalSize;
+    const half = this.cellSize / 2;
 
     boardUnderlay
       .roundRect(0, 0, boardWidth, boardHeight, cellRadius)
       .fill(COLORS.boardUnderlay);
 
     for (let row = 0; row < this.boardSize; row += 1) {
+      const fillRow: Container[] = [];
       const markerRow: Container[] = [];
       for (let col = 0; col < this.boardSize; col += 1) {
         const cell = boardState[row]?.[col];
@@ -160,21 +161,28 @@ export class GameBoard extends Container {
           continue;
         }
 
-        const x = col * this.cellSize;
-        const y = row * this.cellSize;
+        const centerX = col * this.cellSize + half;
+        const centerY = row * this.cellSize + half;
 
-        // Full cell bounds so grid lines sit flush on edges with no gutters.
-        regionFills
-          .roundRect(x, y, this.cellSize, this.cellSize, cellRadius)
+        const cellFill = new Container();
+        const fill = new Graphics()
+          .roundRect(-half, -half, this.cellSize, this.cellSize, cellRadius)
           .fill(getRegionColor(cell.regionId));
+        cellFill.addChild(fill);
+        cellFill.x = centerX;
+        cellFill.y = centerY;
+        this.attachCellPressHandlers(cellFill, row, col);
+        fillRow.push(cellFill);
+        cellsContainer.addChild(cellFill);
 
         const marker = new Container();
         this.drawCellMarker(marker, cell.placed);
-        marker.x = x;
-        marker.y = y;
+        marker.x = centerX;
+        marker.y = centerY;
         markerRow.push(marker);
         this.markersContainer.addChild(marker);
       }
+      this.cellFills.push(fillRow);
       this.cellMarkers.push(markerRow);
     }
 
@@ -193,7 +201,7 @@ export class GameBoard extends Container {
 
     this.gridContainer.addChild(
       boardUnderlay,
-      regionFills,
+      cellsContainer,
       gridLines,
       regionBorders,
       outerPerimeter,
@@ -202,6 +210,66 @@ export class GameBoard extends Container {
 
   private cellCornerRadius(cellSize: number): number {
     return Math.min(12, Math.max(4, cellSize * 0.15));
+  }
+
+  private attachCellPressHandlers(cell: Container, row: number, col: number): void {
+    cell.eventMode = 'static';
+    cell.cursor = 'pointer';
+
+    cell.on('pointerdown', () => {
+      this.animateCellPress(row, col, true);
+    });
+
+    const restoreScale = (): void => {
+      this.animateCellPress(row, col, false);
+    };
+
+    cell.on('pointerup', restoreScale);
+    cell.on('pointerupoutside', restoreScale);
+    cell.on('pointerout', restoreScale);
+  }
+
+  private animateCellPress(row: number, col: number, pressed: boolean): void {
+    const tweenVars = pressed
+      ? { x: 0.95, y: 0.95, duration: 0.1, ease: 'power2.out', overwrite: 'auto' as const }
+      : { x: 1, y: 1, duration: 0.2, ease: 'back.out(2)', overwrite: 'auto' as const };
+
+    const cell = this.cellFills[row]?.[col];
+    if (cell && !cell.destroyed) {
+      gsap.to(cell.scale, { ...tweenVars });
+    }
+
+    const marker = this.cellMarkers[row]?.[col];
+    if (marker && !marker.destroyed && !this.invalidStarTweens.has(`${row},${col}`)) {
+      gsap.to(marker.scale, { ...tweenVars });
+    }
+  }
+
+  private clearPressAnimations(): void {
+    for (const fillRow of this.cellFills) {
+      for (const cell of fillRow) {
+        if (!cell || cell.destroyed) {
+          continue;
+        }
+        gsap.killTweensOf(cell.scale);
+        cell.scale.set(1);
+      }
+    }
+
+    for (let row = 0; row < this.cellMarkers.length; row += 1) {
+      for (let col = 0; col < (this.cellMarkers[row]?.length ?? 0); col += 1) {
+        if (this.invalidStarTweens.has(`${row},${col}`)) {
+          continue;
+        }
+
+        const marker = this.cellMarkers[row]?.[col];
+        if (!marker || marker.destroyed) {
+          continue;
+        }
+        gsap.killTweensOf(marker.scale);
+        marker.scale.set(1);
+      }
+    }
   }
 
   private attachBoardPointerHandlers(): void {
@@ -475,12 +543,9 @@ export class GameBoard extends Container {
       return;
     }
 
-    const centerX = this.cellSize / 2;
-    const centerY = this.cellSize / 2;
-
     if (placed === 'dot' || placed === 'auto-dot') {
       const radius = this.cellSize * 0.075;
-      const dot = new Graphics().circle(centerX, centerY, radius).fill(COLORS.dotFill);
+      const dot = new Graphics().circle(0, 0, radius).fill(COLORS.dotFill);
       marker.addChild(dot);
       return;
     }
@@ -489,8 +554,8 @@ export class GameBoard extends Container {
     sprite.width = this.cellSize * 0.8;
     sprite.height = this.cellSize * 0.8;
     sprite.anchor.set(0.5);
-    sprite.x = centerX;
-    sprite.y = centerY;
+    sprite.x = 0;
+    sprite.y = 0;
     sprite.tint = COLORS.elementFill;
     marker.addChild(sprite);
   }
@@ -505,8 +570,6 @@ export class GameBoard extends Container {
     }
 
     marker.scale.set(1);
-    marker.pivot.set(0, 0);
-    marker.position.set(col * this.cellSize, row * this.cellSize);
 
     const sprite = marker.children.find((child) => child instanceof Sprite);
     if (sprite instanceof Sprite && !sprite.destroyed) {
