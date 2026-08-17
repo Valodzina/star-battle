@@ -5,6 +5,7 @@ import type { CellState } from '../../types/level';
 import { COLORS, REGION_BACKGROUNDS, getRegionColor } from '../colors';
 import { REGION_BORDER_WIDTH } from '../constants';
 import { getStarTexture } from '../gameAssets';
+import { HapticManager } from '../../utils/HapticManager';
 
 export interface GameBoardOptions {
   cellSize: number;
@@ -159,6 +160,7 @@ export class GameBoard extends Container {
     });
 
     populatedGroups.forEach((scaleTargets, index) => {
+      const position = index === 0 ? 0 : tl.duration() + 0.001;
       tl.to(
         scaleTargets,
         {
@@ -167,8 +169,11 @@ export class GameBoard extends Container {
           duration: 0.09,
           ease: 'back.out(2)',
         },
-        index === 0 ? 0 : '+=0.001',
+        position,
       );
+      tl.add(() => {
+        HapticManager.playLight();
+      }, position);
     });
 
     this.autoDotTimeline = tl;

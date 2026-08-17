@@ -4,6 +4,7 @@ import { GameView } from './GameView';
 import type { Difficulty, ScreenId } from '../types/level';
 import type { LevelManager } from '../services/LevelManager';
 import { ProgressManager } from '../services/ProgressManager';
+import { HapticManager } from '../utils/HapticManager';
 
 export class GameController {
   private readonly model = new GameModel();
@@ -168,6 +169,12 @@ export class GameController {
         const result = this.model.cycleCell(row, col);
         if (result) {
           this.model.pushMove({ changes: result.changes });
+          const tappedState = result.changes[0]?.newState;
+          if (tappedState === 'element') {
+            HapticManager.playDouble();
+          } else if (tappedState === 'dot' || tappedState === 'nothing') {
+            HapticManager.playLight();
+          }
         }
 
         if (result?.newAutoDots.length && result.sourceStar) {
@@ -190,6 +197,7 @@ export class GameController {
         const change = this.model.paintDot(row, col);
         if (change) {
           this.pendingDragChanges.push(change);
+          HapticManager.playLight();
           this.syncGameplayBoard();
         }
       },
@@ -197,6 +205,7 @@ export class GameController {
         const change = this.model.eraseDot(row, col);
         if (change) {
           this.pendingDragChanges.push(change);
+          HapticManager.playLight();
           this.syncGameplayBoard();
         }
       },

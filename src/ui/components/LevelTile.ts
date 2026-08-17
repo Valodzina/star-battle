@@ -1,4 +1,5 @@
 import { Container, Graphics, Rectangle, Sprite, Text, type Texture } from 'pixi.js';
+import { HapticManager } from '../../utils/HapticManager';
 import { COLORS } from '../colors';
 import { INTER_SEMIBOLD_FONT_FAMILY } from '../constants';
 import { getLockTexture, getStarTexture, getStarWinTexture } from '../gameAssets';
@@ -102,6 +103,7 @@ export class LevelTile extends Container {
 
     this.on('pointerover', () => drawBackground(COLORS.levelButtonHover));
     this.on('pointerout', () => drawBackground(COLORS.levelButton));
+    this.on('pointerdown', () => HapticManager.playLight());
     this.on('pointertap', onClick);
   }
 

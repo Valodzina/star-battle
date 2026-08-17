@@ -1,4 +1,5 @@
 import { Container, Rectangle, Sprite, Text } from 'pixi.js';
+import { HapticManager } from '../../utils/HapticManager';
 import { COLORS } from '../colors';
 import { INTER_MEDIUM_FONT_FAMILY } from '../constants';
 import { getBackTexture } from '../gameAssets';
@@ -45,6 +46,7 @@ export class GameplayHeader extends Container {
     );
     this.backButton.position.set(SIDE_INSET + ICON_BUTTON_SIZE / 2, centerY);
     this.backButton.addChild(backIcon);
+    this.backButton.on('pointerdown', () => HapticManager.playLight());
     this.backButton.on('pointertap', () => onBackClicked());
 
     this.timerText = new Text({

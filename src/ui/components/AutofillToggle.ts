@@ -1,5 +1,6 @@
 import { Container, Graphics, Rectangle, Sprite } from 'pixi.js';
 import gsap from 'gsap';
+import { HapticManager } from '../../utils/HapticManager';
 import { COLORS } from '../colors';
 import { blendColor } from '../colorUtils';
 import { getStarWinTexture } from '../gameAssets';
@@ -94,6 +95,7 @@ export class AutofillToggle extends Container {
     this.cursor = 'pointer';
     this.hitArea = new Rectangle(0, 0, width, height);
 
+    this.on('pointerdown', () => HapticManager.playLight());
     this.on('pointertap', () => this.handleToggle());
     this.on('destroy', () => this.killTweens());
   }

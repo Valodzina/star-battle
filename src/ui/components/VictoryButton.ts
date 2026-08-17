@@ -1,5 +1,6 @@
 import { Container, Graphics, Rectangle, Sprite, Text } from 'pixi.js';
 import gsap from 'gsap';
+import { HapticManager } from '../../utils/HapticManager';
 import { COLORS } from '../colors';
 import { INTER_MEDIUM_FONT_FAMILY } from '../constants';
 import { blendColor, lightenColor } from '../colorUtils';
@@ -78,6 +79,7 @@ export class VictoryButton extends Container {
     this.on('destroy', () => {
       this.hoverTween?.kill();
     });
+    this.on('pointerdown', () => HapticManager.playLight());
     this.on('pointertap', onClick);
   }
 
