@@ -151,6 +151,8 @@ export class GameBoard extends Container {
       return;
     }
 
+    const ringDuration = 0.09;
+    const ringStagger = 0.001;
     const tl = gsap.timeline({
       onComplete: () => {
         this.autoDotTimeline = null;
@@ -160,21 +162,32 @@ export class GameBoard extends Container {
     });
 
     populatedGroups.forEach((scaleTargets, index) => {
-      const position = index === 0 ? 0 : tl.duration() + 0.001;
+      const position = index === 0 ? 0 : tl.duration() + ringStagger;
       tl.to(
         scaleTargets,
         {
           x: 1,
           y: 1,
-          duration: 0.09,
+          duration: ringDuration,
           ease: 'back.out(2)',
         },
         position,
       );
-      tl.add(() => {
-        HapticManager.playLight();
-      }, position);
     });
+
+    // Start the ring pattern now, while the tap is still a user gesture.
+    // Delayed GSAP callbacks cannot call navigator.vibrate() in Chrome.
+    const lightMs = 15;
+    const intervalMs = Math.round((ringDuration + ringStagger) * 1000);
+    const pauseMs = Math.max(1, intervalMs - lightMs);
+    const pattern: number[] = [];
+    for (let i = 0; i < populatedGroups.length; i += 1) {
+      pattern.push(lightMs);
+      if (i < populatedGroups.length - 1) {
+        pattern.push(pauseMs);
+      }
+    }
+    HapticManager.playPattern(pattern);
 
     this.autoDotTimeline = tl;
   }
