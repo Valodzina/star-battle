@@ -83,6 +83,7 @@ export class GameBoard extends Container {
   updateBoardState(boardState: CellState[][], skipMarkerCells?: CellPosition[]): void {
     this.clearAutoDotAnimation();
     this.clearInvalidStarAnimations();
+    const previousBoardState = this.boardState;
     this.boardState = boardState;
 
     const skippedCells = new Set(
@@ -91,19 +92,27 @@ export class GameBoard extends Container {
 
     for (let row = 0; row < boardState.length; row += 1) {
       for (let col = 0; col < (boardState[row]?.length ?? 0); col += 1) {
+        const marker = this.cellMarkers[row]?.[col];
+        if (!marker) {
+          continue;
+        }
+
         if (skippedCells.has(`${row},${col}`)) {
-          const marker = this.cellMarkers[row]?.[col];
-          if (marker) {
-            this.drawCellMarker(marker, 'nothing');
-          }
+          this.drawCellMarker(marker, 'nothing');
           continue;
         }
 
         const cell = boardState[row]?.[col];
-        const marker = this.cellMarkers[row]?.[col];
-        if (cell && marker) {
-          this.drawCellMarker(marker, cell.placed, cell.regionId);
+        if (!cell) {
+          continue;
         }
+
+        const previousPlaced = previousBoardState[row]?.[col]?.placed;
+        if (previousPlaced === cell.placed) {
+          continue;
+        }
+
+        this.drawCellMarker(marker, cell.placed, cell.regionId, { animate: true });
       }
     }
   }
@@ -220,8 +229,7 @@ export class GameBoard extends Container {
         continue;
       }
 
-      const sprite = marker.children.find((child) => child instanceof Sprite);
-      if (!(sprite instanceof Sprite) || sprite.destroyed) {
+      if (this.getMarkerSprites(marker).length === 0) {
         continue;
       }
 
@@ -244,6 +252,7 @@ export class GameBoard extends Container {
     this.clearAutoDotAnimation();
     this.clearInvalidStarAnimations();
     this.clearPressAnimations();
+    this.clearMarkerPopAnimations();
   }
 
   private renderGrid(boardState: CellState[][]): void {
@@ -747,26 +756,73 @@ export class GameBoard extends Container {
     marker: Container,
     placed: CellState['placed'],
     regionId?: number,
+    options?: { animate?: boolean },
   ): void {
-    marker.removeChildren().forEach((child) => {
-      child.destroy();
-    });
+    const animate = options?.animate ?? false;
+
+    for (const child of marker.children) {
+      gsap.killTweensOf(child.scale);
+    }
+
+    const existingContent = marker.children[0];
 
     if (placed === 'nothing') {
+      if (!existingContent || existingContent.destroyed) {
+        return;
+      }
+
+      if (animate) {
+        gsap.to(existingContent.scale, {
+          x: 0,
+          y: 0,
+          duration: 0.1,
+          ease: 'power2.in',
+          overwrite: 'auto',
+          onComplete: () => {
+            if (!existingContent.destroyed) {
+              existingContent.destroy({ children: true });
+            }
+          },
+        });
+        return;
+      }
+
+      marker.removeChildren().forEach((child) => {
+        child.destroy({ children: true });
+      });
       return;
     }
 
+    marker.removeChildren().forEach((child) => {
+      child.destroy({ children: true });
+    });
+
+    const content = new Container();
     if (placed === 'dot') {
       const radius = this.cellSize * 0.075;
       const dot = new Graphics().circle(0, 0, radius).fill(COLORS.dotFill);
-      marker.addChild(dot);
-      return;
+      content.addChild(dot);
+    } else {
+      const starSize = this.cellSize * 0.8;
+      const outlineStar = this.createStarSprite(starSize, getRegionStarOutline(regionId ?? 0));
+      const innerStar = this.createStarSprite(starSize * 0.82, COLORS.elementFill);
+      content.addChild(outlineStar, innerStar);
     }
 
-    const starSize = this.cellSize * 0.8;
-    const outlineStar = this.createStarSprite(starSize, getRegionStarOutline(regionId ?? 0));
-    const innerStar = this.createStarSprite(starSize * 0.82, COLORS.elementFill);
-    marker.addChild(outlineStar, innerStar);
+    if (animate) {
+      content.scale.set(0);
+    }
+    marker.addChild(content);
+
+    if (animate) {
+      gsap.to(content.scale, {
+        x: 1,
+        y: 1,
+        duration: 0.15,
+        ease: 'sin.out',
+        overwrite: 'auto',
+      });
+    }
   }
 
   private createStarSprite(size: number, tint: number): Sprite {
@@ -791,11 +847,22 @@ export class GameBoard extends Container {
 
     marker.scale.set(1);
 
-    const sprites = marker.children.filter((child) => child instanceof Sprite);
+    const sprites = this.getMarkerSprites(marker);
     const innerStar = sprites[sprites.length - 1];
-    if (innerStar instanceof Sprite && !innerStar.destroyed) {
+    if (innerStar) {
       innerStar.tint = COLORS.elementFill;
     }
+  }
+
+  private getMarkerSprites(marker: Container): Sprite[] {
+    const content = marker.children[0];
+    if (!content || content.destroyed || !(content instanceof Container)) {
+      return [];
+    }
+
+    return content.children.filter(
+      (child): child is Sprite => child instanceof Sprite && !child.destroyed,
+    );
   }
 
   private clearAutoDotAnimation(): void {
@@ -810,5 +877,22 @@ export class GameBoard extends Container {
       this.resetInvalidStarVisual(key);
     }
     this.invalidStarTweens.clear();
+  }
+
+  private clearMarkerPopAnimations(): void {
+    for (const markerRow of this.cellMarkers) {
+      for (const marker of markerRow) {
+        if (!marker || marker.destroyed) {
+          continue;
+        }
+
+        const content = marker.children[0];
+        if (!content || content.destroyed) {
+          continue;
+        }
+
+        gsap.killTweensOf(content.scale);
+      }
+    }
   }
 }
