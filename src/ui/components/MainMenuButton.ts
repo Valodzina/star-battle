@@ -28,7 +28,16 @@ export class MainMenuButton extends Container {
     const { width, height, label, subtitle, difficultyColor, completed, total, onClick } = options;
 
     const background = new Graphics();
-    background.roundRect(0, 0, width, height, CORNER_RADIUS).fill(COLORS.menuButton);
+    const drawBackground = (fillColor: number): void => {
+      if (background.destroyed) {
+        return;
+      }
+
+      background.clear();
+      background.roundRect(0, 0, width, height, CORNER_RADIUS).fill(fillColor);
+    };
+
+    drawBackground(COLORS.menuButton);
     this.addChild(background);
 
     const circleRadius = height * 0.32;
@@ -153,6 +162,9 @@ export class MainMenuButton extends Container {
     this.eventMode = 'static';
     this.cursor = 'pointer';
     this.hitArea = new Rectangle(0, 0, width, height);
+
+    this.on('pointerover', () => drawBackground(COLORS.menuButtonHover));
+    this.on('pointerout', () => drawBackground(COLORS.menuButton));
     this.on('pointertap', onClick);
   }
 }

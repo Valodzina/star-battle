@@ -10,6 +10,7 @@ export const COLORS = {
   menuButtonColorHard:   0x907FAF,
 
   menuButton: 0xc4cacf,
+  menuButtonHover: 0xD4D9DD,
   menuButtonDark: 0xaeb7be,
   menuButtonText : 0x2d3740,
   menuButtonSubText : 0x44505c,
