@@ -8,5 +8,4 @@ export const LEVEL_NAV_HEIGHT = 140;
 export const LEVEL_NAV_GAP = 16;
 export const LEVEL_NAV_SWIPE_THRESHOLD = 50;
 /** Fixed pixel widths — do not scale with cellSize. */
-export const GRID_LINE_WIDTH = 1;
-export const REGION_BORDER_WIDTH = 3;
+export const REGION_BORDER_WIDTH = 4;
