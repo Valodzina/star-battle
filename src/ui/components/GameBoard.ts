@@ -39,6 +39,7 @@ export class GameBoard extends Container {
   private isDragging = false;
   private dragMode: 'painting' | 'erasing' | null = null;
   private lastEnteredCell: { row: number; col: number } | null = null;
+  private visuallyPressedCell: { row: number; col: number } | null = null;
 
   constructor(options: GameBoardOptions) {
     super();
@@ -61,6 +62,7 @@ export class GameBoard extends Container {
     this.onDragErase = onDragErase;
     this.onInteractionEnd = onInteractionEnd;
 
+    this.markersContainer.eventMode = 'none';
     this.addChild(this.gridContainer, this.markersContainer, this.boardMask);
     this.mask = this.boardMask;
 
@@ -199,9 +201,10 @@ export class GameBoard extends Container {
           .fill(getRegionColor(cell.regionId));
         cellFill.addChild(fill);
         cellFill.hitArea = new Rectangle(-half, -half, this.cellSize, this.cellSize);
+        cellFill.eventMode = 'static';
+        cellFill.cursor = 'pointer';
         cellFill.x = centerX;
         cellFill.y = centerY;
-        this.attachCellPressHandlers(cellFill, row, col);
         fillRow.push(cellFill);
         cellsContainer.addChild(cellFill);
 
@@ -304,21 +307,27 @@ export class GameBoard extends Container {
     graphics.closePath().fill(color);
   }
 
-  private attachCellPressHandlers(cell: Container, row: number, col: number): void {
-    cell.eventMode = 'static';
-    cell.cursor = 'pointer';
+  private isSameCell(
+    a: { row: number; col: number } | null,
+    b: { row: number; col: number } | null,
+  ): boolean {
+    return a != null && b != null && a.row === b.row && a.col === b.col;
+  }
 
-    cell.on('pointerdown', () => {
-      this.animateCellPress(row, col, true);
-    });
+  private setVisuallyPressedCell(cell: { row: number; col: number } | null): void {
+    if (this.isSameCell(this.visuallyPressedCell, cell)) {
+      return;
+    }
 
-    const restoreScale = (): void => {
-      this.animateCellPress(row, col, false);
-    };
+    if (this.visuallyPressedCell) {
+      this.animateCellPress(this.visuallyPressedCell.row, this.visuallyPressedCell.col, false);
+    }
 
-    cell.on('pointerup', restoreScale);
-    cell.on('pointerupoutside', restoreScale);
-    cell.on('pointerout', restoreScale);
+    this.visuallyPressedCell = cell;
+
+    if (cell) {
+      this.animateCellPress(cell.row, cell.col, true);
+    }
   }
 
   private animateCellPress(row: number, col: number, pressed: boolean): void {
@@ -338,6 +347,8 @@ export class GameBoard extends Container {
   }
 
   private clearPressAnimations(): void {
+    this.visuallyPressedCell = null;
+
     for (const fillRow of this.cellFills) {
       for (const cell of fillRow) {
         if (!cell || cell.destroyed) {
@@ -373,11 +384,13 @@ export class GameBoard extends Container {
       this.resetDragSession();
       const cell = this.getCellFromLocalPoint(event.getLocalPosition(this));
       if (!cell) {
+        this.setVisuallyPressedCell(null);
         return;
       }
 
       this.pointerDownCell = cell;
       this.startCellPlacement = this.boardState[cell.row]?.[cell.col]?.placed ?? null;
+      this.setVisuallyPressedCell(cell);
     });
 
     this.on('globalpointermove', (event: FederatedPointerEvent) => {
@@ -386,6 +399,7 @@ export class GameBoard extends Container {
       }
 
       const cell = this.getCellFromLocalPoint(event.getLocalPosition(this));
+      this.setVisuallyPressedCell(cell);
       if (!cell) {
         return;
       }
@@ -432,6 +446,7 @@ export class GameBoard extends Container {
         this.onInteractionEnd();
       }
 
+      this.setVisuallyPressedCell(null);
       this.resetDragSession();
     };
 
