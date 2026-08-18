@@ -1,9 +1,9 @@
-import { Application, Container } from 'pixi.js';
+import { Application } from 'pixi.js';
 import type { CellPosition } from './GameModel';
 import type { CellState, Difficulty, GameState } from '../types/level';
 import type { LevelManager } from '../services/LevelManager';
 import type { ProgressManager } from '../services/ProgressManager';
-import type { IScene } from '../ui/scenes/IScene';
+import { SceneManager, type TransitionDirection } from '../ui/SceneManager';
 import { MainMenuScene } from '../ui/scenes/MainMenuScene';
 import { LevelSelectScene } from '../ui/scenes/LevelSelectScene';
 import { GameplayScene } from '../ui/scenes/GameplayScene';
@@ -25,10 +25,9 @@ export interface GameViewCallbacks {
 }
 
 export class GameView {
-  private readonly root = new Container();
-  private readonly app: Application;
   private readonly levelManager: LevelManager;
   private readonly progressManager: ProgressManager;
+  private readonly sceneManager: SceneManager;
   private autoFillEnabled = true;
   private callbacks: GameViewCallbacks = {
     onDifficultySelected: () => undefined,
@@ -46,7 +45,6 @@ export class GameView {
     onNextLevel: () => undefined,
   };
 
-  private currentScene: IScene | null = null;
   private gameplayScene: GameplayScene | null = null;
 
   constructor(
@@ -54,26 +52,23 @@ export class GameView {
     levelManager: LevelManager,
     progressManager: ProgressManager,
   ) {
-    this.app = app;
     this.levelManager = levelManager;
     this.progressManager = progressManager;
-    this.app.stage.addChild(this.root);
+    this.sceneManager = new SceneManager(app);
   }
 
   setCallbacks(callbacks: GameViewCallbacks): void {
     this.callbacks = callbacks;
   }
 
-  render(state: GameState): void {
-    this.unmountCurrentScene();
-
-    const { width, height } = this.app.screen;
+  render(state: GameState, direction: TransitionDirection = 'none'): void {
+    this.gameplayScene = null;
 
     if (state.screen === 'mainMenu') {
       const scene = new MainMenuScene(this.levelManager, this.progressManager, {
         onDifficultySelected: (difficulty) => this.callbacks.onDifficultySelected(difficulty),
       });
-      this.mountScene(scene, width, height);
+      this.sceneManager.changeScene(scene, direction);
       return;
     }
 
@@ -87,7 +82,7 @@ export class GameView {
           onLevelSelected: (index) => this.callbacks.onLevelSelected(index),
         },
       );
-      this.mountScene(scene, width, height);
+      this.sceneManager.changeScene(scene, direction);
       return;
     }
 
@@ -110,8 +105,16 @@ export class GameView {
         this.autoFillEnabled,
       );
       this.gameplayScene = scene;
-      this.mountScene(scene, width, height);
+      this.sceneManager.changeScene(scene, direction);
     }
+  }
+
+  resize(width: number, height: number): void {
+    this.sceneManager.resize(width, height);
+  }
+
+  isTransitioning(): boolean {
+    return this.sceneManager.isTransitioningActive();
   }
 
   updateTimerDisplay(seconds: number): void {
@@ -144,7 +147,10 @@ export class GameView {
   }
 
   isBoardInputBlocked(): boolean {
-    return this.gameplayScene?.isBoardInputBlocked() ?? false;
+    return (
+      this.sceneManager.isTransitioningActive() ||
+      (this.gameplayScene?.isBoardInputBlocked() ?? false)
+    );
   }
 
   animateAutoDots(
@@ -159,27 +165,24 @@ export class GameView {
     this.gameplayScene?.refreshLevelNavigation();
   }
 
-  private mountScene(scene: IScene & Container, width: number, height: number): void {
-    this.currentScene = scene;
-    this.root.addChild(scene);
-    scene.resize(width, height);
-    scene.show();
-  }
-
-  private unmountCurrentScene(): void {
-    if (!this.currentScene) {
+  transitionGameplayLevel(
+    state: GameState,
+    direction: 'forward' | 'backward',
+    screenWidth: number,
+  ): void {
+    if (state.screen !== 'gameplay' || !state.gameplay) {
+      return;
+    }
+    if (!this.gameplayScene) {
       return;
     }
 
-    this.currentScene.hide();
-    if (this.currentScene instanceof Container && this.currentScene.parent === this.root) {
-      this.root.removeChild(this.currentScene);
-    }
-    if (this.currentScene instanceof Container && !this.currentScene.destroyed) {
-      this.currentScene.destroy({ children: true });
-    }
-
-    this.currentScene = null;
-    this.gameplayScene = null;
+    this.sceneManager.lockInputs();
+    this.gameplayScene.transitionToGameplay(
+      state.gameplay,
+      direction,
+      screenWidth,
+      () => this.sceneManager.unlockInputs(),
+    );
   }
 }

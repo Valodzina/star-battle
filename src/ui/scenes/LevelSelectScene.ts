@@ -59,6 +59,7 @@ export class LevelSelectScene extends Container implements IScene {
   private lastDragY = 0;
   private lastDragTime = 0;
   private velocityY = 0;
+  private pendingFocusScroll = false;
 
   constructor(
     difficulty: Difficulty,
@@ -79,6 +80,7 @@ export class LevelSelectScene extends Container implements IScene {
   }
 
   hide(): void {
+    this.pendingFocusScroll = false;
     this.killActiveTweens();
     this.clearScrollState();
     this.removeChildren().forEach((child) => child.destroy({ children: true }));
@@ -186,8 +188,8 @@ export class LevelSelectScene extends Container implements IScene {
     const scrollContainer = new Container();
     scrollContainer.x = gridOffsetX;
     scrollContainer.y = this.contentTop;
-    scrollContainer.eventMode = 'static';
-    scrollContainer.cursor = 'grab';
+    scrollContainer.eventMode = 'none';
+    scrollContainer.cursor = 'default';
     scrollContainer.mask = scrollMask;
     scrollContainer.hitArea = new Rectangle(
       0,
@@ -233,7 +235,8 @@ export class LevelSelectScene extends Container implements IScene {
     contentContainer.y = 0;
 
     this.bindScrollEvents(scrollContainer);
-    this.focusTargetLevel();
+    // Start the automatic focus scroll only after SceneManager finishes its swipe.
+    this.pendingFocusScroll = true;
   }
 
   private bindScrollEvents(scrollContainer: Container): void {
@@ -397,6 +400,22 @@ export class LevelSelectScene extends Container implements IScene {
     this.cols = 1;
     this.tileWidth = DEFAULT_TILE_WIDTH;
     this.tileHeight = DEFAULT_TILE_HEIGHT;
+  }
+
+  // Called by SceneManager after the swipe transition is fully complete.
+  // We start the automatic focus scroll and enable dragging only then.
+  onTransitionComplete(): void {
+    if (!this.scrollContainer || this.destroyed || !this.visible) {
+      return;
+    }
+
+    this.scrollContainer.eventMode = 'static';
+    this.scrollContainer.cursor = 'grab';
+
+    if (this.pendingFocusScroll) {
+      this.pendingFocusScroll = false;
+      this.focusTargetLevel();
+    }
   }
 
   private trackTween(tween: gsap.core.Tween): void {

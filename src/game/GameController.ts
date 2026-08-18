@@ -2,6 +2,7 @@ import type { Application } from 'pixi.js';
 import { GameModel, type CellChange, type CellPosition } from './GameModel';
 import { GameView } from './GameView';
 import type { Difficulty, ScreenId } from '../types/level';
+import type { TransitionDirection } from '../ui/SceneManager';
 import type { LevelManager } from '../services/LevelManager';
 import { ProgressManager } from '../services/ProgressManager';
 import { HapticManager } from '../utils/HapticManager';
@@ -17,6 +18,7 @@ export class GameController {
   private lastScreen: ScreenId | null = null;
   private pendingDragChanges: CellChange[] = [];
   private wasVictory = false;
+  private nextTransition: TransitionDirection = 'none';
 
   constructor(app: Application, levelManager: LevelManager) {
     this.app = app;
@@ -69,7 +71,12 @@ export class GameController {
       nextIndex,
       this.levelManager.getLevelCount(difficulty),
     );
-    this.view.render(this.model.getState());
+    const state = this.model.getState();
+    this.view.transitionGameplayLevel(
+      state,
+      'forward',
+      this.app.screen.width,
+    );
     this.view.setUndoEnabled(this.model.canUndo());
     this.view.setAutoFillEnabled(this.model.isAutoFillOn());
     this.startTimer();
@@ -102,7 +109,12 @@ export class GameController {
       previousIndex,
       this.levelManager.getLevelCount(difficulty),
     );
-    this.view.render(this.model.getState());
+    const state = this.model.getState();
+    this.view.transitionGameplayLevel(
+      state,
+      'backward',
+      this.app.screen.width,
+    );
     this.view.setUndoEnabled(this.model.canUndo());
     this.view.setAutoFillEnabled(this.model.isAutoFillOn());
     this.startTimer();
@@ -113,7 +125,8 @@ export class GameController {
 
     this.model.subscribe((state) => {
       if (state.screen !== this.lastScreen) {
-        this.view.render(state);
+        this.view.render(state, this.nextTransition);
+        this.nextTransition = 'none';
         this.lastScreen = state.screen;
 
         if (state.screen === 'gameplay') {
@@ -131,7 +144,7 @@ export class GameController {
     this.lastScreen = this.model.getState().screen;
 
     this.app.renderer.on('resize', () => {
-      this.view.render(this.model.getState());
+      this.view.resize(this.app.screen.width, this.app.screen.height);
       if (this.model.getState().screen === 'gameplay') {
         this.view.setUndoEnabled(this.model.canUndo());
         this.view.setAutoFillEnabled(this.model.isAutoFillOn());
@@ -143,9 +156,11 @@ export class GameController {
     this.view.setCallbacks({
       onDifficultySelected: (difficulty: Difficulty) => {
         this.model.setDifficulty(difficulty);
+        this.nextTransition = 'forward';
         this.model.setScreen('levelSelect');
       },
       onBackSelected: () => {
+        this.nextTransition = 'backward';
         this.model.setScreen('mainMenu');
       },
       onLevelSelected: (index: number) => {
@@ -162,6 +177,7 @@ export class GameController {
         this.pendingDragChanges = [];
         this.wasVictory = false;
         this.model.loadLevel(level, index, this.levelManager.getLevelCount(difficulty));
+        this.nextTransition = 'forward';
         this.model.setScreen('gameplay');
         this.view.setUndoEnabled(this.model.canUndo());
         this.view.setAutoFillEnabled(this.model.isAutoFillOn());
@@ -272,6 +288,7 @@ export class GameController {
         this.pendingDragChanges = [];
         this.wasVictory = false;
         this.model.clearGameplay();
+        this.nextTransition = 'backward';
         this.model.setScreen('levelSelect');
       },
       onPreviousLevel: () => {

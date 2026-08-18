@@ -1,4 +1,5 @@
 import { Container } from 'pixi.js';
+import gsap from 'gsap';
 import type { CellPosition } from '../../game/GameModel';
 import type { CellState, GameplayState } from '../../types/level';
 import type { ProgressManager } from '../../services/ProgressManager';
@@ -65,7 +66,7 @@ function formatTime(seconds: number): string {
 }
 
 export class GameplayScene extends Container implements IScene {
-  private readonly gameplay: GameplayState;
+  private gameplay: GameplayState;
   private readonly callbacks: GameplaySceneCallbacks;
   private readonly progressManager: ProgressManager;
 
@@ -192,8 +193,14 @@ export class GameplayScene extends Container implements IScene {
   }
 
   private init(): void {
-    const { level, boardState, elapsedSeconds, remainingElements, levelIndex, levelCount } =
-      this.gameplay;
+    const {
+      level,
+      boardState,
+      elapsedSeconds,
+      remainingElements,
+      levelIndex,
+      levelCount,
+    } = this.gameplay;
 
     this.lastElapsedSeconds = elapsedSeconds;
 
@@ -297,5 +304,142 @@ export class GameplayScene extends Container implements IScene {
         }
       },
     );
+  }
+
+  transitionToGameplay(
+    newGameplay: GameplayState,
+    direction: 'forward' | 'backward',
+    screenWidth: number,
+    onComplete?: () => void,
+  ): void {
+    if (direction !== 'forward' && direction !== 'backward') {
+      return;
+    }
+
+    // Block all interactions on the board/navigation layers while the swap animation runs.
+    // (Global input blocking is handled by SceneManager via a separate input blocker.)
+    this.victoryOverlay.hide();
+
+    const oldCenter = this.centerContainer;
+    const baseX = oldCenter.x;
+    const baseY = oldCenter.y;
+
+    // Update header instantly (no movement).
+    this.gameplay = newGameplay;
+    this.lastElapsedSeconds = newGameplay.elapsedSeconds;
+    this.topContainer.updateTimer(formatTime(newGameplay.elapsedSeconds));
+    this.topContainer.updateStars(newGameplay.remainingElements);
+
+    const nextCenterBuild = this.buildCenterForGameplay(newGameplay);
+    const incomingCenter = nextCenterBuild.center;
+
+    // Match current scale/position so the tween moves only horizontally.
+    incomingCenter.scale.copyFrom(oldCenter.scale);
+    incomingCenter.position.set(oldCenter.position.x, oldCenter.position.y);
+
+    const insertIndex = this.getChildIndex(oldCenter);
+    this.addChildAt(incomingCenter, insertIndex);
+
+    const oldTargetX =
+      baseX + (direction === 'forward' ? -screenWidth : screenWidth);
+    const newStartX =
+      baseX + (direction === 'forward' ? screenWidth : -screenWidth);
+
+    incomingCenter.x = newStartX;
+    incomingCenter.y = baseY;
+
+    gsap.killTweensOf(oldCenter);
+    gsap.killTweensOf(incomingCenter);
+
+    const duration = 0.4;
+    const ease = 'power3.inOut';
+
+    gsap.to(oldCenter, {
+      x: oldTargetX,
+      duration,
+      ease,
+    });
+
+    gsap.to(incomingCenter, {
+      x: baseX,
+      duration,
+      ease,
+      onComplete: () => {
+        // Replace references to the newly built board/navigation.
+        this.gameplay = newGameplay;
+        this.hasPreviousLevel = nextCenterBuild.hasPreviousLevel;
+        this.hasNextLevel = nextCenterBuild.hasNextLevel;
+        this.gameBoard = nextCenterBuild.gameBoard;
+        this.levelNavigation = nextCenterBuild.levelNavigation;
+        this.centerContainer = incomingCenter;
+
+        oldCenter.removeFromParent();
+        oldCenter.destroy({ children: true });
+
+        if (newGameplay.isVictory || DEBUG_SHOW_VICTORY) {
+          this.showVictoryOverlay();
+        } else {
+          this.victoryOverlay.hide();
+        }
+
+        onComplete?.();
+      },
+    });
+  }
+
+  private buildCenterForGameplay(
+    gameplay: GameplayState,
+  ): {
+    center: Container;
+    gameBoard: GameBoard;
+    levelNavigation: LevelNavigation;
+    hasPreviousLevel: boolean;
+    hasNextLevel: boolean;
+  } {
+    const { level, boardState, levelIndex, levelCount } = gameplay;
+
+    const hasPreviousLevel = levelIndex > 0;
+    const nextLevelId = adjacentLevelId(level.id, 1);
+    const hasNextLevel =
+      levelIndex < levelCount - 1 &&
+      nextLevelId !== null &&
+      this.progressManager.isUnlocked(nextLevelId);
+
+    const gameBoard = new GameBoard({
+      cellSize: BASE_CELL_SIZE,
+      size: level.size,
+      boardState,
+      onCellTap: (row, col) => this.callbacks.onCellTap(row, col),
+      onDragPaint: (row, col) => this.callbacks.onDragPaint(row, col),
+      onDragErase: (row, col) => this.callbacks.onDragErase(row, col),
+      onInteractionEnd: () => this.callbacks.onInteractionEnd(),
+    });
+
+    const boardBaseWidth = gameBoard.logicalSize;
+    const reserved = TOP_PAD + TOP_BAND + BOTTOM_BAND + LEVEL_NAV_HEIGHT + LEVEL_NAV_GAP;
+    const targetBoardWidth = Math.min(LOGICAL_WIDTH * 0.9, LOGICAL_HEIGHT - reserved);
+
+    gameBoard.pivot.set(boardBaseWidth / 2, boardBaseWidth / 2);
+    gameBoard.scale.set(targetBoardWidth / boardBaseWidth);
+    gameBoard.x = LOGICAL_WIDTH / 2;
+    gameBoard.y = LEVEL_NAV_HEIGHT + LEVEL_NAV_GAP + targetBoardWidth / 2;
+
+    const levelNavigation = new LevelNavigation({
+      levelNumber: levelIndex + 1,
+      logicalBoardWidth: targetBoardWidth,
+      hasPreviousLevel,
+      hasNextLevel,
+      onPrevClick: () => this.callbacks.onPreviousLevel(),
+      onNextClick: () => this.callbacks.onNextLevel(),
+    });
+    levelNavigation.x = (LOGICAL_WIDTH - targetBoardWidth) / 2;
+    levelNavigation.y = 0;
+
+    const center = new Container();
+    const clusterHeight = LEVEL_NAV_HEIGHT + LEVEL_NAV_GAP + targetBoardWidth;
+    center.pivot.set(LOGICAL_WIDTH / 2, clusterHeight / 2);
+    center.addChild(levelNavigation, gameBoard);
+
+    return { center, gameBoard, levelNavigation, hasPreviousLevel, hasNextLevel };
   }
 }
