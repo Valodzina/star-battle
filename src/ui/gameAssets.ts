@@ -26,31 +26,36 @@ export const MONTSERRAT_EXTRABOLD_FONT_ID = 'montserrat-extrabold';
 export const INTER_SEMIBOLD_FONT_ID = 'inter-semibold';
 export const INTER_MEDIUM_FONT_ID = 'inter-medium';
 
-export async function loadGameAssets(): Promise<void> {
-  await Assets.load([
-    { alias: STAR_TEXTURE_ID, src: starImageUrl },
-    { alias: STAR_WIN_TEXTURE_ID, src: starWinImageUrl },
-    { alias: UNDO_TEXTURE_ID, src: undoImageUrl },
-    { alias: BIN_TEXTURE_ID, src: binImageUrl },
-    { alias: BACK_TEXTURE_ID, src: backImageUrl },
-    { alias: BACK_1_TEXTURE_ID, src: back1ImageUrl },
-    { alias: LOCK_TEXTURE_ID, src: lockImageUrl },
-    {
-      alias: MONTSERRAT_EXTRABOLD_FONT_ID,
-      src: montserratExtraBoldUrl,
-      data: { family: TITLE_FONT_FAMILY },
-    },
-    {
-      alias: INTER_SEMIBOLD_FONT_ID,
-      src: interSemiBoldUrl,
-      data: { family: INTER_SEMIBOLD_FONT_FAMILY },
-    },
-    {
-      alias: INTER_MEDIUM_FONT_ID,
-      src: interMediumUrl,
-      data: { family: INTER_MEDIUM_FONT_FAMILY },
-    },
-  ]);
+export async function loadGameAssets(
+  onProgress?: (progress: number) => void,
+): Promise<void> {
+  await Assets.load(
+    [
+      { alias: STAR_TEXTURE_ID, src: starImageUrl },
+      { alias: STAR_WIN_TEXTURE_ID, src: starWinImageUrl },
+      { alias: UNDO_TEXTURE_ID, src: undoImageUrl },
+      { alias: BIN_TEXTURE_ID, src: binImageUrl },
+      { alias: BACK_TEXTURE_ID, src: backImageUrl },
+      { alias: BACK_1_TEXTURE_ID, src: back1ImageUrl },
+      { alias: LOCK_TEXTURE_ID, src: lockImageUrl },
+      {
+        alias: MONTSERRAT_EXTRABOLD_FONT_ID,
+        src: montserratExtraBoldUrl,
+        data: { family: TITLE_FONT_FAMILY },
+      },
+      {
+        alias: INTER_SEMIBOLD_FONT_ID,
+        src: interSemiBoldUrl,
+        data: { family: INTER_SEMIBOLD_FONT_FAMILY },
+      },
+      {
+        alias: INTER_MEDIUM_FONT_ID,
+        src: interMediumUrl,
+        data: { family: INTER_MEDIUM_FONT_FAMILY },
+      },
+    ],
+    onProgress,
+  );
 }
 
 export function getStarTexture(): Texture {
