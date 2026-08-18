@@ -103,6 +103,12 @@ export class GameplayScene extends Container implements IScene {
     this.visible = true;
   }
 
+  onTransitionComplete(): void {
+    if (this.gameplay.isVictory || DEBUG_SHOW_VICTORY) {
+      this.showVictoryOverlay();
+    }
+  }
+
   hide(): void {
     this.victoryOverlay.hide();
     this.gameBoard.clearAnimations();
@@ -136,7 +142,7 @@ export class GameplayScene extends Container implements IScene {
 
     this.victoryContainer.position.set(screenWidth / 2, screenHeight / 2);
 
-    if (this.gameplay.isVictory || DEBUG_SHOW_VICTORY) {
+    if (this.visible && (this.gameplay.isVictory || DEBUG_SHOW_VICTORY)) {
       this.showVictoryOverlay();
     }
   }
@@ -264,10 +270,6 @@ export class GameplayScene extends Container implements IScene {
 
     this.victoryOverlay = new VictoryOverlay();
     this.victoryContainer.addChild(this.victoryOverlay);
-
-    if (DEBUG_SHOW_VICTORY) {
-      this.showVictoryOverlay();
-    }
 
     this.addChild(
       this.topContainer,
