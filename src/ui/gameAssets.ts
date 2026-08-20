@@ -9,6 +9,8 @@ import binImageUrl from '../assets/images/bin-1.png';
 import backImageUrl from '../assets/images/back.png';
 import back1ImageUrl from '../assets/images/back-1.png';
 import lockImageUrl from '../assets/images/lock.png';
+import tutorialImageUrl from '../assets/images/tutorial.png';
+import handImageUrl from '../assets/images/hand.png';
 import {
   INTER_MEDIUM_FONT_FAMILY,
   INTER_SEMIBOLD_FONT_FAMILY,
@@ -22,6 +24,8 @@ export const BIN_TEXTURE_ID = 'bin-1';
 export const BACK_TEXTURE_ID = 'back';
 export const BACK_1_TEXTURE_ID = 'back-1';
 export const LOCK_TEXTURE_ID = 'lock';
+export const TUTORIAL_TEXTURE_ID = 'tutorial.png';
+export const HAND_TEXTURE_ID = 'hand.png';
 export const MONTSERRAT_EXTRABOLD_FONT_ID = 'montserrat-extrabold';
 export const INTER_SEMIBOLD_FONT_ID = 'inter-semibold';
 export const INTER_MEDIUM_FONT_ID = 'inter-medium';
@@ -38,6 +42,8 @@ export async function loadGameAssets(
       { alias: BACK_TEXTURE_ID, src: backImageUrl },
       { alias: BACK_1_TEXTURE_ID, src: back1ImageUrl },
       { alias: LOCK_TEXTURE_ID, src: lockImageUrl },
+      { alias: TUTORIAL_TEXTURE_ID, src: tutorialImageUrl },
+      { alias: HAND_TEXTURE_ID, src: handImageUrl },
       {
         alias: MONTSERRAT_EXTRABOLD_FONT_ID,
         src: montserratExtraBoldUrl,
@@ -84,4 +90,12 @@ export function getBack1Texture(): Texture {
 
 export function getLockTexture(): Texture {
   return Assets.get<Texture>(LOCK_TEXTURE_ID);
+}
+
+export function getTutorialTexture(): Texture {
+  return Assets.get<Texture>(TUTORIAL_TEXTURE_ID);
+}
+
+export function getHandTexture(): Texture {
+  return Assets.get<Texture>(HAND_TEXTURE_ID);
 }

@@ -1,8 +1,10 @@
-import { Container, Text, Sprite, Graphics } from 'pixi.js';
+import { Container, Text, Sprite, Graphics, Rectangle } from 'pixi.js';
 import type { Difficulty } from '../../types/level';
 import { DIFFICULTY_META } from '../../types/level';
 import type { LevelManager } from '../../services/LevelManager';
 import type { ProgressManager } from '../../services/ProgressManager';
+import { HapticManager } from '../../utils/HapticManager';
+import { SoundManager } from '../../utils/SoundManager';
 import { COLORS } from '../colors';
 import { BUTTON_GAP, SCREEN_PADDING, TITLE_FONT_FAMILY } from '../constants';
 import { MainMenuButton } from '../components/MainMenuButton';
@@ -11,9 +13,12 @@ import { getStarWinTexture } from '../gameAssets';
 
 const BUTTON_WIDTH = 320;
 const BUTTON_HEIGHT = 72;
+const TUTORIAL_ICON_SIZE = 48;
+const TUTORIAL_HIT_SIZE = 96;
 
 export interface MainMenuSceneCallbacks {
   onDifficultySelected: (difficulty: Difficulty) => void;
+  onTutorialSelected: () => void;
 }
 
 export class MainMenuScene extends Container implements IScene {
@@ -140,5 +145,33 @@ export class MainMenuScene extends Container implements IScene {
     mainContainer.scale.set(scale);
     mainContainer.x = screenWidth / 2 - (bounds.x + bounds.width / 2) * scale;
     mainContainer.y = screenHeight / 2 - (bounds.y + bounds.height / 2) * scale;
+
+    const tutorialIcon = Sprite.from('tutorial.png');
+    tutorialIcon.anchor.set(0.5);
+    tutorialIcon.width = TUTORIAL_ICON_SIZE;
+    tutorialIcon.height = TUTORIAL_ICON_SIZE;
+    tutorialIcon.tint = COLORS.title;
+    tutorialIcon.eventMode = 'none';
+
+    const tutorialButton = new Container();
+    tutorialButton.eventMode = 'static';
+    tutorialButton.cursor = 'pointer';
+    tutorialButton.hitArea = new Rectangle(
+      -TUTORIAL_HIT_SIZE / 2,
+      -TUTORIAL_HIT_SIZE / 2,
+      TUTORIAL_HIT_SIZE,
+      TUTORIAL_HIT_SIZE,
+    );
+    tutorialButton.position.set(
+      screenWidth - SCREEN_PADDING - TUTORIAL_ICON_SIZE / 2,
+      screenHeight - SCREEN_PADDING - TUTORIAL_ICON_SIZE / 2,
+    );
+    tutorialButton.addChild(tutorialIcon);
+    tutorialButton.on('pointerdown', () => {
+      HapticManager.playLight();
+      SoundManager.playClick();
+    });
+    tutorialButton.on('pointertap', () => this.callbacks.onTutorialSelected());
+    this.addChild(tutorialButton);
   }
 }

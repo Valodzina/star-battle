@@ -7,9 +7,12 @@ import { SceneManager, type TransitionDirection } from '../ui/SceneManager';
 import { MainMenuScene } from '../ui/scenes/MainMenuScene';
 import { LevelSelectScene } from '../ui/scenes/LevelSelectScene';
 import { GameplayScene } from '../ui/scenes/GameplayScene';
+import { TutorialScene } from '../ui/scenes/TutorialScene';
 
 export interface GameViewCallbacks {
   onDifficultySelected: (difficulty: Difficulty) => void;
+  onTutorialSelected: () => void;
+  onTutorialClosed: () => void;
   onBackSelected: () => void;
   onLevelSelected: (index: number) => void;
   onCellTap: (row: number, col: number) => void;
@@ -31,6 +34,8 @@ export class GameView {
   private autoFillEnabled = true;
   private callbacks: GameViewCallbacks = {
     onDifficultySelected: () => undefined,
+    onTutorialSelected: () => undefined,
+    onTutorialClosed: () => undefined,
     onBackSelected: () => undefined,
     onLevelSelected: () => undefined,
     onCellTap: () => undefined,
@@ -67,6 +72,15 @@ export class GameView {
     if (state.screen === 'mainMenu') {
       const scene = new MainMenuScene(this.levelManager, this.progressManager, {
         onDifficultySelected: (difficulty) => this.callbacks.onDifficultySelected(difficulty),
+        onTutorialSelected: () => this.callbacks.onTutorialSelected(),
+      });
+      this.sceneManager.changeScene(scene, direction);
+      return;
+    }
+
+    if (state.screen === 'tutorial') {
+      const scene = new TutorialScene({
+        onGotIt: () => this.callbacks.onTutorialClosed(),
       });
       this.sceneManager.changeScene(scene, direction);
       return;

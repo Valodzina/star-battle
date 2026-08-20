@@ -159,6 +159,14 @@ export class GameController {
         this.nextTransition = 'forward';
         this.model.setScreen('levelSelect');
       },
+      onTutorialSelected: () => {
+        this.nextTransition = 'forward';
+        this.model.setScreen('tutorial');
+      },
+      onTutorialClosed: () => {
+        this.nextTransition = 'backward';
+        this.model.setScreen('mainMenu');
+      },
       onBackSelected: () => {
         this.nextTransition = 'backward';
         this.model.setScreen('mainMenu');

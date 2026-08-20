@@ -1,7 +1,7 @@
 import { COLORS } from '../ui/colors';
 
 export type Difficulty = 'easy' | 'medium' | 'hard';
-export type ScreenId = 'mainMenu' | 'levelSelect' | 'gameplay';
+export type ScreenId = 'mainMenu' | 'levelSelect' | 'gameplay' | 'tutorial';
 
 export type CellPlacement = 'nothing' | 'dot' | 'element';
 

@@ -80,6 +80,34 @@ export class GameBoard extends Container {
     return this.isInputBlocked;
   }
 
+  setCellColor(row: number, col: number, color: number): void {
+    const cellFill = this.cellFills[row]?.[col];
+    const fill = cellFill?.children[0];
+    if (!(fill instanceof Graphics) || fill.destroyed) {
+      return;
+    }
+
+    const fillInset = 0.2 * REGION_BORDER_WIDTH;
+    const fillSize = this.cellSize - fillInset * 2;
+    const fillHalf = fillSize / 2;
+    fill.clear();
+    fill
+      .roundRect(-fillHalf, -fillHalf, fillSize, fillSize, this.cellCornerRadius(fillSize))
+      .fill(color);
+  }
+
+  resetCellColors(): void {
+    for (let row = 0; row < this.boardSize; row += 1) {
+      for (let col = 0; col < (this.cellFills[row]?.length ?? 0); col += 1) {
+        const regionId = this.boardState[row]?.[col]?.regionId;
+        if (regionId === undefined) {
+          continue;
+        }
+        this.setCellColor(row, col, getRegionColor(regionId));
+      }
+    }
+  }
+
   updateBoardState(boardState: CellState[][], skipMarkerCells?: CellPosition[]): void {
     this.clearAutoDotAnimation();
     this.clearInvalidStarAnimations();
