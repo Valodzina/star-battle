@@ -177,8 +177,9 @@ const CARD_WIDTH = LOGICAL_WIDTH - CARD_INSET * 2;
 const CARD_HEIGHT = LOGICAL_HEIGHT - CARD_INSET * 2;
 const CARD_RADIUS = 44;
 const CARD_PAD = 48;
-const CARD_BORDER_WIDTH = 4;
-const CARD_FILL = lightenColor(COLORS.background, 0.16);
+const CARD_BORDER_WIDTH = 8;
+const CARD_FILL = COLORS.menuButton;
+const TUTORIAL_REGION_BORDER_WIDTH = 8;
 
 const COPY_STAR_SIZE = 26;
 const COPY_STAR_GAP = 16;
@@ -328,6 +329,7 @@ export class TutorialScene extends Container implements IScene {
       onDragPaint: () => undefined,
       onDragErase: () => undefined,
       onInteractionEnd: () => undefined,
+      regionBorderWidth: TUTORIAL_REGION_BORDER_WIDTH,
     });
     this.gameBoard.eventMode = 'none';
     this.gameBoard.interactiveChildren = false;

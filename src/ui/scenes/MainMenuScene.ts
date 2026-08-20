@@ -13,8 +13,8 @@ import { getStarWinTexture } from '../gameAssets';
 
 const BUTTON_WIDTH = 320;
 const BUTTON_HEIGHT = 72;
-const TUTORIAL_ICON_SIZE = 48;
-const TUTORIAL_HIT_SIZE = 96;
+const TUTORIAL_ICON_SIZE = 40;
+const TUTORIAL_HIT_SIZE = 50;
 
 export interface MainMenuSceneCallbacks {
   onDifficultySelected: (difficulty: Difficulty) => void;

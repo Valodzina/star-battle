@@ -16,6 +16,7 @@ export interface GameBoardOptions {
   onDragPaint: (row: number, col: number) => void;
   onDragErase: (row: number, col: number) => void;
   onInteractionEnd: () => void;
+  regionBorderWidth?: number;
 }
 
 export class GameBoard extends Container {
@@ -23,6 +24,7 @@ export class GameBoard extends Container {
 
   private readonly cellSize: number;
   private readonly boardSize: number;
+  private readonly regionBorderWidth: number;
   private readonly onCellTap: (row: number, col: number) => void;
   private readonly onDragPaint: (row: number, col: number) => void;
   private readonly onDragErase: (row: number, col: number) => void;
@@ -58,10 +60,12 @@ export class GameBoard extends Container {
       onDragPaint,
       onDragErase,
       onInteractionEnd,
+      regionBorderWidth = REGION_BORDER_WIDTH,
     } = options;
 
     this.cellSize = cellSize;
     this.boardSize = size;
+    this.regionBorderWidth = regionBorderWidth;
     this.logicalSize = size * cellSize;
     this.onCellTap = onCellTap;
     this.onDragPaint = onDragPaint;
@@ -87,7 +91,7 @@ export class GameBoard extends Container {
       return;
     }
 
-    const fillInset = 0.2 * REGION_BORDER_WIDTH;
+    const fillInset = 0.2 * this.regionBorderWidth;
     const fillSize = this.cellSize - fillInset * 2;
     const fillHalf = fillSize / 2;
     fill.clear();
@@ -363,7 +367,7 @@ export class GameBoard extends Container {
 
         const centerX = col * this.cellSize + half;
         const centerY = row * this.cellSize + half;
-        const fillInset = 0.2 * REGION_BORDER_WIDTH;
+        const fillInset = 0.2 * this.regionBorderWidth;
         const fillSize = this.cellSize - fillInset * 2;
         const fillHalf = fillSize / 2;
 
@@ -394,7 +398,7 @@ export class GameBoard extends Container {
     this.drawAllRegionBorders(regionBorders, boardState, regionRadius);
 
     outerPerimeter.roundRect(0, 0, boardWidth, boardHeight, cellRadius).stroke({
-      width: REGION_BORDER_WIDTH,
+      width: this.regionBorderWidth,
       color: COLORS.regionBorder,
       alignment: 1,
       join: 'round',
@@ -681,7 +685,7 @@ export class GameBoard extends Container {
     const size = this.boardSize;
     const cellSize = this.cellSize;
     const strokeOpts = {
-      width: REGION_BORDER_WIDTH,
+      width: this.regionBorderWidth,
       color: COLORS.regionBorder,
       join: 'round' as const,
       cap: 'round' as const,
