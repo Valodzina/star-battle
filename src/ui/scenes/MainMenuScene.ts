@@ -6,15 +6,36 @@ import type { ProgressManager } from '../../services/ProgressManager';
 import { HapticManager } from '../../utils/HapticManager';
 import { SoundManager } from '../../utils/SoundManager';
 import { COLORS } from '../colors';
-import { BUTTON_GAP, SCREEN_PADDING, TITLE_FONT_FAMILY } from '../constants';
+import { TITLE_FONT_FAMILY } from '../constants';
 import { MainMenuButton } from '../components/MainMenuButton';
 import type { IScene } from './IScene';
 import { getStarWinTexture } from '../gameAssets';
 
-const BUTTON_WIDTH = 320;
-const BUTTON_HEIGHT = 72;
-const TUTORIAL_ICON_SIZE = 40;
-const TUTORIAL_HIT_SIZE = 50;
+const LOGICAL_WIDTH = 1080;
+const LOGICAL_HEIGHT = 1380;
+const TOP_PAD = 40;
+const TOP_BAND = 360;
+const BOTTOM_BAND = 200;
+const SIDE_INSET = 40;
+
+const BUTTON_WIDTH = 800;
+const BUTTON_HEIGHT = 180;
+const BUTTON_GAP = 40;
+
+const TITLE_FONT_SIZE = 140;
+const TITLE_LINE_HEIGHT = 115;
+const TITLE_LETTER_SPACING = 4;
+
+const LOGO_STAR_SIZE = 56;
+const LOGO_LINE_LENGTH = 280;
+const LOGO_LINE_WIDTH = 4;
+const LOGO_END_CIRCLE_RADIUS = 7;
+const LOGO_OFFSET = 70;
+const LOGO_Y = 70;
+const TITLE_Y = 220;
+
+const TUTORIAL_ICON_SIZE = 90;
+const TUTORIAL_HIT_SIZE = 120;
 
 export interface MainMenuSceneCallbacks {
   onDifficultySelected: (difficulty: Difficulty) => void;
@@ -26,6 +47,12 @@ export class MainMenuScene extends Container implements IScene {
   private readonly progressManager: ProgressManager;
   private readonly callbacks: MainMenuSceneCallbacks;
 
+  private topContainer!: Container;
+  private centerContainer!: Container;
+  private bottomContainer!: Container;
+
+  private menuClusterHeight = 0;
+
   constructor(
     levelManager: LevelManager,
     progressManager: ProgressManager,
@@ -36,6 +63,7 @@ export class MainMenuScene extends Container implements IScene {
     this.progressManager = progressManager;
     this.callbacks = callbacks;
     this.visible = false;
+    this.init();
   }
 
   show(): void {
@@ -43,15 +71,77 @@ export class MainMenuScene extends Container implements IScene {
   }
 
   hide(): void {
-    this.removeChildren().forEach((child) => child.destroy({ children: true }));
     this.visible = false;
   }
 
   resize(screenWidth: number, screenHeight: number): void {
-    this.removeChildren().forEach((child) => child.destroy({ children: true }));
+    const scale = Math.min(screenWidth / LOGICAL_WIDTH, screenHeight / LOGICAL_HEIGHT);
+    const virtualHeight = screenHeight / scale;
+    const offsetX = (screenWidth - LOGICAL_WIDTH * scale) / 2;
 
-    const mainContainer = new Container();
-    this.addChild(mainContainer);
+    for (const container of [this.topContainer, this.centerContainer, this.bottomContainer]) {
+      container.scale.set(scale);
+    }
+
+    this.bottomContainer.position.set(offsetX, (virtualHeight - BOTTOM_BAND) * scale);
+
+    const centerBandTop = TOP_PAD + TOP_BAND;
+    const centerBandBottom = virtualHeight - BOTTOM_BAND;
+    const buttonsCenterY = (centerBandTop + centerBandBottom) / 2 + 100;
+    this.centerContainer.position.set(screenWidth / 2, buttonsCenterY * scale);
+
+    const buttonsTop = buttonsCenterY - this.menuClusterHeight / 2;
+    const titleCenterY = (TOP_PAD + buttonsTop) / 2;
+    this.topContainer.position.set(offsetX, titleCenterY * scale);
+  }
+
+  private init(): void {
+    this.topContainer = this.buildTitle();
+    this.centerContainer = this.buildMenu();
+    this.bottomContainer = this.buildTutorialButton();
+
+    this.addChild(this.topContainer, this.centerContainer, this.bottomContainer);
+  }
+
+  private buildTitle(): Container {
+    const top = new Container();
+
+    const titleLogo = new Container();
+    titleLogo.x = LOGICAL_WIDTH / 2;
+    titleLogo.y = LOGO_Y;
+    titleLogo.tint = COLORS.title;
+
+    const tileLogoSprite = new Sprite(getStarWinTexture());
+    tileLogoSprite.anchor.set(0.5);
+    tileLogoSprite.width = LOGO_STAR_SIZE;
+    tileLogoSprite.height = LOGO_STAR_SIZE;
+
+    const color = COLORS.white;
+
+    const titleLogoLeftLine = new Graphics();
+    titleLogoLeftLine.moveTo(-LOGO_OFFSET, 0).lineTo(-LOGO_LINE_LENGTH - LOGO_OFFSET, 0).stroke({
+      width: LOGO_LINE_WIDTH,
+      color,
+      alpha: 1,
+    });
+    titleLogoLeftLine
+      .circle(-LOGO_LINE_LENGTH - LOGO_OFFSET, 0, LOGO_END_CIRCLE_RADIUS)
+      .fill({ color });
+    titleLogo.addChild(titleLogoLeftLine);
+
+    const titleLogoRightLine = new Graphics();
+    titleLogoRightLine.moveTo(LOGO_OFFSET, 0).lineTo(LOGO_LINE_LENGTH + LOGO_OFFSET, 0).stroke({
+      width: LOGO_LINE_WIDTH,
+      color,
+      alpha: 1,
+    });
+    titleLogoRightLine
+      .circle(LOGO_LINE_LENGTH + LOGO_OFFSET, 0, LOGO_END_CIRCLE_RADIUS)
+      .fill({ color });
+    titleLogo.addChild(titleLogoRightLine);
+
+    titleLogo.addChild(tileLogoSprite);
+    top.addChild(titleLogo);
 
     const title = new Text({
       text: 'STAR\nBATTLE',
@@ -59,61 +149,29 @@ export class MainMenuScene extends Container implements IScene {
         align: 'center',
         fill: COLORS.title,
         fontFamily: TITLE_FONT_FAMILY,
-        fontSize: 55,
-        letterSpacing: 1.6,
-        lineHeight: 45,
+        fontSize: TITLE_FONT_SIZE,
+        letterSpacing: TITLE_LETTER_SPACING,
+        lineHeight: TITLE_LINE_HEIGHT,
         fontWeight: '800',
       },
     });
     title.anchor.set(0.5);
-    title.x = 0;
-    title.y = -220;
-    mainContainer.addChild(title);
+    title.x = LOGICAL_WIDTH / 2;
+    title.y = TITLE_Y;
+    top.addChild(title);
 
-    const titleLogo = new Container();
-    titleLogo.x = 0;
-    titleLogo.y = -280;
-    titleLogo.tint = COLORS.title;
+    const bounds = top.getLocalBounds();
 
-    const tileLogoSprite = new Sprite(getStarWinTexture());
-    tileLogoSprite.x = 0;
-    tileLogoSprite.y = 0;
-    tileLogoSprite.width = 20;
-    tileLogoSprite.height = 20;
-    tileLogoSprite.anchor.set(0.5);
+    top.pivot.set(0, bounds.y + bounds.height / 2);
 
-    const lineLength = 100;
-    const endCircleRadius = 2.5;
-    const color = COLORS.white;
-    const lineWidth = 1.5;
-    const offset = 26;
+    return top;
+  }
 
-    const titleLogoLeftLine = new Graphics();
-    titleLogoLeftLine.moveTo(-offset, 0).lineTo(-lineLength - offset, 0).stroke({
-      width: lineWidth,
-      color: color,
-      alpha: 1,
-    });
-    titleLogoLeftLine.circle(-lineLength - offset, 0, endCircleRadius).fill({ color: color });
-    titleLogo.addChild(titleLogoLeftLine);
-
-    const titleLogoRightLine = new Graphics();
-    titleLogoRightLine.moveTo(offset, 0).lineTo(lineLength + offset, 0).stroke({
-      width: lineWidth,
-      color: color,
-      alpha: 1,
-    });
-    titleLogoRightLine.circle(lineLength + offset, 0, endCircleRadius).fill({ color: color });
-    titleLogo.addChild(titleLogoRightLine);
-
-    titleLogo.addChild(tileLogoSprite);
-    mainContainer.addChild(titleLogo);
-
+  private buildMenu(): Container {
     const menu = new Container();
-    const totalHeight =
+    const clusterHeight =
       DIFFICULTY_META.length * BUTTON_HEIGHT + (DIFFICULTY_META.length - 1) * BUTTON_GAP;
-    menu.x = -BUTTON_WIDTH / 2;
-    menu.y = -totalHeight / 2 + 50;
+    this.menuClusterHeight = clusterHeight;
 
     DIFFICULTY_META.forEach((meta, index) => {
       const button = new MainMenuButton({
@@ -126,25 +184,17 @@ export class MainMenuScene extends Container implements IScene {
         total: this.levelManager.getLevelCount(meta.difficulty),
         onClick: () => this.callbacks.onDifficultySelected(meta.difficulty),
       });
+      button.x = (LOGICAL_WIDTH - BUTTON_WIDTH) / 2;
       button.y = index * (BUTTON_HEIGHT + BUTTON_GAP);
       menu.addChild(button);
     });
 
-    mainContainer.addChild(menu);
+    menu.pivot.set(LOGICAL_WIDTH / 2, clusterHeight / 2);
+    return menu;
+  }
 
-    // Fit-to-screen: scale down only if needed, and center the visual bounds
-    // (not local origin) so asymmetric title/logo stack isn't clipped in landscape.
-    const bounds = mainContainer.getLocalBounds();
-    const availableWidth = Math.max(1, screenWidth - SCREEN_PADDING * 2);
-    const availableHeight = Math.max(1, screenHeight - SCREEN_PADDING * 2);
-    const scale = Math.min(
-      1,
-      availableWidth / Math.max(1, bounds.width),
-      availableHeight / Math.max(1, bounds.height),
-    );
-    mainContainer.scale.set(scale);
-    mainContainer.x = screenWidth / 2 - (bounds.x + bounds.width / 2) * scale;
-    mainContainer.y = screenHeight / 2 - (bounds.y + bounds.height / 2) * scale;
+  private buildTutorialButton(): Container {
+    const bottom = new Container();
 
     const tutorialIcon = Sprite.from('tutorial.png');
     tutorialIcon.anchor.set(0.5);
@@ -163,8 +213,8 @@ export class MainMenuScene extends Container implements IScene {
       TUTORIAL_HIT_SIZE,
     );
     tutorialButton.position.set(
-      screenWidth - SCREEN_PADDING - TUTORIAL_ICON_SIZE / 2,
-      screenHeight - SCREEN_PADDING - TUTORIAL_ICON_SIZE / 2,
+      LOGICAL_WIDTH - SIDE_INSET - TUTORIAL_ICON_SIZE ,
+      BOTTOM_BAND / 2,
     );
     tutorialButton.addChild(tutorialIcon);
     tutorialButton.on('pointerdown', () => {
@@ -172,6 +222,8 @@ export class MainMenuScene extends Container implements IScene {
       SoundManager.playClick();
     });
     tutorialButton.on('pointertap', () => this.callbacks.onTutorialSelected());
-    this.addChild(tutorialButton);
+    bottom.addChild(tutorialButton);
+
+    return bottom;
   }
 }
